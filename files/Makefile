@@ -11,6 +11,8 @@ clearTest2 = rm -rf $(tDir2);
 mockFiles = touch $(tDir)/f1 $(tDir)/f2 $(tDir)/f3;
 gTest = go test;
 rmFiles = rm -rf $(tDir);
-
+writeTest = touch writeFile.txt; touch appendFile.txt;
+endWriteTest = rm writeFile.txt appendFile.txt;
+read = cat appendFile.txt;
 test: 
-	$(dir) $(mockFiles) $(test2) $(gTest) $(rmFiles) $(clearTest2)
+	$(dir) $(mockFiles) $(test2) $(writeTest) $(gTest) $(rmFiles) $(clearTest2) $(endWriteTest)

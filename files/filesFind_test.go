@@ -1,6 +1,7 @@
 package files
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +26,7 @@ const fn = "files.go"
 func CheckInArray(t *testing.T, a []File, f File) {
 	check := false
 	for _, fp := range a {
-		check = check || (fp.String() == f.String())
+		check = check || fp.Equal(f)
 	}
 	assert.True(t, check)
 }
@@ -39,7 +40,7 @@ func TestReadingDir(t *testing.T) {
 	files, e := GetFilesFromDir("./test")
 	assert.Nil(t, e, "Should be able to read the test directory")
 	for i, f := range files {
-		assert.True(t, f.String() == testFiles[i].String(), "Some file found did not match the expected value")
+		assert.True(t, f.Equal(testFiles[i]), "Some file found did not match the expected value")
 	}
 }
 
@@ -60,6 +61,7 @@ func TestTraversingDir(t *testing.T) {
 	files, e := TraverseDirForFiles("./test2")
 	assert.Nil(t, e)
 	for _, f := range ts {
+		fmt.Println(f)
 		CheckInArray(t, files, f)
 	}
 }
