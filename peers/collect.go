@@ -1,7 +1,12 @@
 package peers
 
 import (
+	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/BjornGudmundsson/p2pBackup/files"
@@ -10,8 +15,21 @@ import (
 //Here are the functions and objects that get the data that is supposed to be collected
 //and send it if meant to
 
-func checkIfHasBeenBackedup(data []byte) bool {
-	return true
+func checkIfHasBeenBackedup(data []byte, log string) bool {
+	f, e := os.Open(log)
+	if e != nil {
+		return false
+	}
+	h := sha256.Sum256(data)
+	hx := hex.EncodeToString(h[:])
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		contains := strings.Contains(scanner.Text(), hx)
+		if contains {
+			return true
+		}
+	}
+	return false
 }
 
 //Update is meant to be run as a seperate thread that periodically checks for data
@@ -25,6 +43,8 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerFile
 		panic(e)
 	}
 	for {
+		time.Sleep(wait)
+
 		backupFiles, e := files.FindAllFilesToBackup(rules, basedir)
 		if e != nil {
 			fmt.Println(e)
@@ -34,11 +54,13 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerFile
 				fmt.Println("Could not read the files")
 				fmt.Println(e)
 			} else {
-				fmt.Println(string(data))
-				hasBeenBackedup := checkIfHasBeenBackedup(data)
-				if !hasBeenBackedup {
+				hasBeenBackedup := checkIfHasBeenBackedup(data, backupLog)
+				if !hasBeenBackedup && len(data) != 0 {
+					fmt.Println("Backing up")
 					for _, peer := range peers {
+						fmt.Println("Sending to peer")
 						e = SendTCPData(data, peer)
+						fmt.Println("Sent to peer")
 						if e != nil {
 							fmt.Println("Could not send data over tcp")
 							fmt.Println(e.Error())
@@ -48,6 +70,5 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerFile
 				}
 			}
 		}
-		time.Sleep(wait)
 	}
 }

@@ -17,7 +17,7 @@ func main() {
 	port := flag.String("p", "8080", "Which port to run the server on")
 	baseDir := flag.String("base", ".", "Base is the basedirectory in which all files will be backed up from. If not provided it will default to the running directory")
 	peersList := flag.String("peers", "peers.txt", "Peers is the file in which the data about other peers is stored")
-	udpPort := flag.String("udp", "3000", "UDP is the port that will be used for the udp socket")
+	udpPort := flag.String("udp", "5000", "UDP is the port that will be used for the udp socket")
 	rules := flag.String("backuprules", "", "backuprules is the toml file in which the specifications for the backup are kept")
 	gui := flag.Bool("gui", false, "Gui says whether or not a gui should be displayed or not. Defaults to false")
 	storageFile := flag.String("storage", "backup.txt", "Storage is the location in which you prefer to store your peers backups")

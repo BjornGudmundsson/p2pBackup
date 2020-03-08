@@ -26,6 +26,6 @@ func AddBackup(d []byte, fn string) error {
 	hx := hex.EncodeToString(h[:])
 	now := time.Now()
 	size := len(d)
-	str := strconv.Itoa(size) + " " + hx + " " + now.String() + "\n"
+	str := strconv.Itoa(size) + ";" + hx + ";" + now.String() + "\n"
 	return AppendToFile(*f, []byte(str))
 }

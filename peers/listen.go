@@ -69,8 +69,6 @@ func verifyData(data []byte) bool {
 //descriptor structure and
 //data and appends it to the file
 func BackupData(f file, data []byte) error {
-	fmt.Println("Name:", f.Name)
-	fmt.Println("PAth: ", f.Path)
 	verified := verifyData(data)
 	if !verified {
 		return NotVerifiedError()
@@ -90,27 +88,25 @@ func createHandler(fileName string) func(net.Conn) {
 		}
 		fl := file(*fd)
 		reader := bufio.NewReader(c)
-		size := reader.Size()
-		buffer := make([]byte, size)
-		n, e := io.ReadFull(reader, buffer)
+		s, e := reader.ReadString(';')
 		if e == io.EOF {
 			fmt.Println("Could not read the data from the buffer")
 		} else {
 			if e == io.ErrUnexpectedEOF {
-				//May ne
-				fmt.Println("Did not complete the buffer")
-				err := BackupData(fl, buffer[:n])
+				err := BackupData(fl, []byte(s))
 				if err != nil {
 					fmt.Println(err)
 				}
 			} else {
-				e = BackupData(fl, buffer)
-				fmt.Println("Bjorn")
+				e = BackupData(fl, []byte(s))
 				if e != nil {
 					fmt.Println(e.Error())
 				}
 			}
-			c.Write([]byte("Data received\n"))
+			_, e = c.Write([]byte("Message received \n"))
+			if e != nil {
+				fmt.Println(e.Error())
+			}
 			e = c.Close()
 			if e != nil {
 				fmt.Println(e.Error())
@@ -128,11 +124,11 @@ func SendTCPData(d []byte, p *Peer) error {
 		return e
 	}
 	fmt.Fprintf(conn, string(d))
-	message, e := bufio.NewReader(conn).ReadString('\n')
-	if e != nil {
-		return e
-	}
-	fmt.Println("Received: ", message)
+	//message, e := bufio.NewReader(conn).ReadString('\n')
+	//if e != nil {
+	//	return e
+	//}
+	//fmt.Println("Received: ", message)
 	e = conn.Close()
 	return e
 }

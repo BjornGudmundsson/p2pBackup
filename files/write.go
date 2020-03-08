@@ -35,7 +35,7 @@ func ToBytes(files []File) ([]byte, error) {
 		name := "Name: " + f.Name + "\n"
 		path := "Path: " + f.Path + "\n"
 		size := "Size: " + strconv.Itoa(int(f.Size)) + "\n"
-		sum := name + path + size
+		sum := name + path + size + "\n"
 		d, e := ioutil.ReadFile(f.Path + "/" + f.Name)
 		if e != nil {
 			return nil, e
@@ -44,6 +44,7 @@ func ToBytes(files []File) ([]byte, error) {
 		data = append(data, d...)
 
 	}
+	data = append(data, byte(';'))
 	return data, nil
 }
 
