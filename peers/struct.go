@@ -8,14 +8,21 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/BjornGudmundsson/p2pBackup/files"
 )
 
+type file files.File
+
+//Peer is a container of how
+//information about a peer is maintained.
 type Peer struct {
 	Name      string
 	Addr      net.IP
 	Port      int
 	PublicKey []byte
 	Suite     string
+	TCP       int
 }
 
 //SuiteIsSupported take in a suite and says if that
@@ -30,7 +37,7 @@ func SuiteIsSupported(s string) bool {
 //else it returns an error.
 func NewPeer(desc string) (*Peer, error) {
 	fields := strings.Split(desc, " ")
-	if len(fields) != 5 {
+	if len(fields) != 6 {
 		return nil, errors.New("Not enough fields")
 	}
 	p := &Peer{}
@@ -43,17 +50,22 @@ func NewPeer(desc string) (*Peer, error) {
 	if eport != nil {
 		return nil, eport
 	}
+	tcpPort, etcp := strconv.Atoi(fields[3])
+	if etcp != nil {
+		return nil, etcp
+	}
+	p.TCP = tcpPort
 	p.Port = int(port)
 	p.Addr = ip
-	d, ehex := hex.DecodeString(fields[3])
+	d, ehex := hex.DecodeString(fields[4])
 	if ehex != nil {
 		return nil, ehex
 	}
 	p.PublicKey = d
-	if !SuiteIsSupported(fields[4]) {
+	if !SuiteIsSupported(fields[5]) {
 		return nil, errors.New("This suite is not supported")
 	}
-	p.Suite = fields[3]
+	p.Suite = fields[5]
 	return p, nil
 }
 

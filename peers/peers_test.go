@@ -9,15 +9,15 @@ import (
 )
 
 func TestParsePeer(t *testing.T) {
-	desc := "Bjo 127.0.0.1 8080 ABCDEF " + ECDSA
+	desc := "Bjo 127.0.0.1 8080 3001 ABCDEF " + ECDSA
 	_, e := NewPeer(desc)
 	assert.Nil(t, e)
 }
 
 func TestFileParser(t *testing.T) {
-	desc1 := "Bjo 127.0.0.1 8080 ABCDEF " + ECDSA + "\n"
+	desc1 := "Bjo 127.0.0.1 8080 3001 ABCDEF " + ECDSA + "\n"
 	l := len(desc1)
-	desc2 := "Ulf 127.0.0.1 8081 ABCDEF " + ECDSA + "\n"
+	desc2 := "Ulf 127.0.0.1 8081 3000 ABCDEF " + ECDSA + "\n"
 	f := files.File{
 		Name: "peers.txt",
 		Path: ".",

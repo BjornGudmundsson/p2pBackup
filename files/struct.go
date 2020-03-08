@@ -111,7 +111,7 @@ func (bd BackupData) Include(f File) bool {
 			return false
 		}
 	}
-	if bd.MinSize > f.Size || bd.MaxSize < f.Size {
+	if bd.MinSize >= f.Size || bd.MaxSize < f.Size {
 		return false
 	}
 	return true
@@ -135,7 +135,7 @@ func DefaultRules() BackupData {
 	d := BackupData{}
 	d.MaxSize = 1000
 	d.MinSize = 0
-	d.TypesToExclude = ""
+	d.TypesToExclude = "([a-z]*).csv"
 	d.BlackListedFiles = []string{}
 	d.MinTimeSinceModified = duration{
 		Duration: time.Second,

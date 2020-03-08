@@ -61,7 +61,11 @@ func TestTraversingDir(t *testing.T) {
 	files, e := TraverseDirForFiles("./test2")
 	assert.Nil(t, e)
 	for _, f := range ts {
-		fmt.Println(f)
 		CheckInArray(t, files, f)
+		e = AppendToFile(f, []byte("deadbeef lmao\n"))
+		assert.Nil(t, e)
 	}
+	fileData, edata := ToBytes(files)
+	assert.Nil(t, edata)
+	fmt.Println(string(fileData))
 }
