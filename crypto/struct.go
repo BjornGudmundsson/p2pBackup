@@ -6,14 +6,30 @@ import (
 	"go.dedis.ch/kyber/v3/util/key"
 )
 
+const (
+	//EDWARDS is the term for the Edwards curve elliptic curve
+	EDWARDS = "Ed25519"
+)
+
 var cipherSuiteRegistry map[string]func() (KeyPair, error)
+var verifierRegistry map[string]Verifier
+var signatureRegistry map[string]Signer
 
 func setCipherSuiteRegistry() {
-	cipherSuiteRegistry["Ed25519"] = newEd25519KeyPair
+	cipherSuiteRegistry = make(map[string]func() (KeyPair, error))
+	cipherSuiteRegistry[EDWARDS] = newEd25519KeyPair
+}
+
+func setSigningFunctions() {
+	verifierRegistry = make(map[string]Verifier)
+	signatureRegistry = make(map[string]Signer)
+	verifierRegistry[EDWARDS] = Ed25519Verification
+	signatureRegistry[EDWARDS] = Ed25519Sign
 }
 
 func init() {
 	setCipherSuiteRegistry()
+	setSigningFunctions()
 }
 
 //SecretKey is the representation of a

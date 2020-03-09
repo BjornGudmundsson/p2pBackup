@@ -56,11 +56,8 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerFile
 			} else {
 				hasBeenBackedup := checkIfHasBeenBackedup(data, backupLog)
 				if !hasBeenBackedup && len(data) != 0 {
-					fmt.Println("Backing up")
 					for _, peer := range peers {
-						fmt.Println("Sending to peer")
 						e = SendTCPData(data, peer)
-						fmt.Println("Sent to peer")
 						if e != nil {
 							fmt.Println("Could not send data over tcp")
 							fmt.Println(e.Error())
