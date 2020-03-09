@@ -13,6 +13,10 @@ import (
 	"github.com/BjornGudmundsson/p2pBackup/peers"
 )
 
+func KeyPairs(protocol string) ([]byte, []byte, string) {
+	return nil, nil, ""
+}
+
 func main() {
 	port := flag.String("p", "8080", "Which port to run the server on")
 	baseDir := flag.String("base", ".", "Base is the basedirectory in which all files will be backed up from. If not provided it will default to the running directory")

@@ -31,18 +31,14 @@ p1=$!
 p2=$!
 
 sleep 5s
-echo "Logging files"
-cat log1.txt
-cat log2.txt
 b1="$(cat backupfile1.txt)"
-echo "New file"
 b2="$(cat backupfile2.txt)"
 
 if [ "$b1" = "$b2" ]
 then
-    echo "Passed"
+    echo  -e "${GREEN}Passed"
 else
-    echo "Failed"
+    echo -e "${RED}Failed"
 fi
 
 #Cleaning up after the test
