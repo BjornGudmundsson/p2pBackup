@@ -1,2 +1,2 @@
 # p2pBackup
-master thesis, EPFL, DEDIS
+Master thesis, EPFL, DEDIS
