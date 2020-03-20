@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/BjornGudmundsson/p2pBackup/purb"
 	"os"
 	"strings"
 	"time"
@@ -36,7 +37,7 @@ func checkIfHasBeenBackedup(data []byte, log string) bool {
 //to send and backup to its peers. The wait parameter defines the amount of time to wait between
 //searching for new backups and the basedir says where to find the files to backup. rules is
 //used to assist in automatic filter of non-backupable files.
-func Update(wait time.Duration, basedir string, rules files.BackupData, peerFile, backupLog string) {
+func Update(wait time.Duration, basedir string, rules files.BackupData, peerFile, backupLog string, info *purb.KeyInfo) {
 	peers, e := GetPeerList(peerFile)
 	if e != nil {
 		fmt.Println(e)
@@ -44,7 +45,6 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerFile
 	}
 	for {
 		time.Sleep(wait)
-
 		backupFiles, e := files.FindAllFilesToBackup(rules, basedir)
 		if e != nil {
 			fmt.Println(e)
@@ -54,10 +54,14 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerFile
 				fmt.Println("Could not read the files")
 				fmt.Println(e)
 			} else {
+				if e != nil {
+					fmt.Println(e)
+					panic(e)
+				}
 				hasBeenBackedup := checkIfHasBeenBackedup(data, backupLog)
 				if !hasBeenBackedup && len(data) != 0 {
 					for _, peer := range peers {
-						e = SendTCPData(data, peer)
+						e = SendTCPData(data, peer, info)
 						if e != nil {
 							fmt.Println("Could not send data over tcp")
 							fmt.Println(e.Error())

@@ -36,7 +36,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/dedis/protobuf"
+	"go.dedis.ch/protobuf"
 	"github.com/BjornGudmundsson/p2pBackup/kyber"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/share"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/sign/schnorr"
