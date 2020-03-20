@@ -99,6 +99,6 @@ func main() {
 		fmt.Println(info)
 		go peers.Update(timer, *baseDir, backupRules, *peersList, *backupLogs, info)
 		go peers.ListenUDP(":" + *udpPort)
-		peers.ListenTCP(":"+strconv.Itoa(*filePort), "./"+*storageFile)
+		peers.ListenTCP(":"+strconv.Itoa(*filePort), "./"+*storageFile, info)
 	}
 }

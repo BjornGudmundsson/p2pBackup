@@ -3,10 +3,13 @@ package peers
 import (
 	"bufio"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"github.com/BjornGudmundsson/p2pBackup/kyber"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/key"
+	"github.com/BjornGudmundsson/p2pBackup/kyber/util/random"
 	"github.com/BjornGudmundsson/p2pBackup/purb"
-	"io"
+	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
 	"net"
 	"strconv"
 	"sync"
@@ -15,6 +18,9 @@ import (
 )
 
 var fileLock *sync.Mutex
+
+//Shorthand for a function handle a connection
+type tcpHandler func(net.Conn) error
 
 const localhost = "127.0.0.1"
 
@@ -43,13 +49,13 @@ func ListenUDP(port string) {
 }
 
 //ListenTCP starts a new tcp server on the given port
-func ListenTCP(port string, backupFile string) {
+func ListenTCP(port string, backupFile string, info *purb.KeyInfo) {
 	l, e := net.Listen("tcp4", port)
 	if e != nil {
 		panic(e)
 	}
 	defer l.Close()
-	handler := createHandler(backupFile)
+	handler := createHandler(backupFile, info.SuiteInfos)
 	for {
 		c, err := l.Accept()
 		if err != nil {
@@ -83,50 +89,106 @@ func BackupData(f file, data []byte) error {
 	return nil
 }
 
-func firstReply(conn net.Conn) (string, error) {
-	reader := bufio.NewReader(conn)
-	return reader.ReadString('\n')
+func handleFailure(c net.Conn, e error, m purbs.SuiteInfoMap) {
+	if c != nil {
+		fmt.Fprintf(c, e.Error())
+		c.Close()
+	}
 }
 
-func keyExchange(conn net.Conn, suiteName string) error {
-	suite, e := purb.GetSuite(suiteName)
-	if e != nil {
-		return e
-	}
-	keyPair := key.NewHidingKeyPair(suite)
-	pk, e := keyPair.Public.MarshalBinary()
-	if e != nil {
-		return e
-	}
-	hx := hex.EncodeToString(pk) + "\n"
-	_, e = fmt.Fprintf(conn, hx)
-	return e
+func isDownload(msg string) (bool, error) {
+	return false, nil//TODO: /make it such that returns true if download, false else and an error if it means nothing
 }
 
-func createHandler(fileName string) func(net.Conn) {
-	f := func(c net.Conn) {
-		fd, e := files.GetFile(fileName)
+func getUploadHandler(suite purbs.Suite, fn string, suiteMap purbs.SuiteInfoMap) func(c net.Conn) error {
+	fd, e := files.GetFile(fn)
+	if e != nil {
+		panic(e)
+	}
+	fl := file(*fd)
+	f := func(c net.Conn) error {
+		params := purbs.NewPublicFixedParameters(suiteMap, false)
+		freshPair := key.NewKeyPair(suite)
+		publicBytes, e := freshPair.Public.MarshalBinary()
 		if e != nil {
-			panic(e)
+			return nil
 		}
-		fl := file(*fd)
+		privateBytes, e := freshPair.Private.MarshalBinary()
+		if e != nil {
+			return e
+		}
+		self, e := purb.NewPrivateRecipient(privateBytes, suite)
+		if e != nil {
+			return e
+		}
+		_, e = fmt.Fprintf(c, hex.EncodeToString(publicBytes) + "\n")
+		if e != nil {
+			return e
+		}
 		reader := bufio.NewReader(c)
-		s, e := reader.ReadString('\n')
-		if e == io.EOF {
-			fmt.Println("Could not read the data from the buffer")
-		} else {
-			e = BackupData(fl, []byte(s))
-			if e != nil {
-				fmt.Println(e.Error())
-			}
-			_, e = c.Write([]byte("Message received \n"))
-			if e != nil {
-				fmt.Println(e.Error())
-			}
-			e = c.Close()
-			if e != nil {
-				fmt.Println(e.Error())
-			}
+		hxPurb, e := reader.ReadString('\n')
+		if e != nil {
+			return e
+		}
+		hxPurb = hxPurb[:len(hxPurb) - 1]
+		blob, e := hex.DecodeString(hxPurb)
+		if e != nil {
+			return e
+		}
+		success, data, e := purbs.Decode(blob, &self, params, false)
+		if e != nil {
+			fmt.Println("Error: ", e.Error())
+			return e
+		}
+		if !success {
+			return errors.New("can't decode the initial purb")
+		}
+		e = BackupData(fl, data)
+		if e != nil {
+			return e
+		}
+		_, e = fmt.Fprintf(c, "Done writing\n")
+		if e != nil {
+			return e
+		}
+		return c.Close()
+	}
+	return f
+}
+
+func firstReply(conn net.Conn, fn string, m purbs.SuiteInfoMap) (tcpHandler, error) {
+	reader := bufio.NewReader(conn)
+	s, e := reader.ReadString('\n')
+	if e != nil {
+		return nil, e
+	}
+	s = s[:len(s) - 1]
+	download, e := isDownload(s)
+	if e != nil {
+		return nil, e
+	}
+	if download {
+		//Handle download
+		return nil, nil
+	}
+	suite, e := purb.GetSuite(s)
+	if e != nil {
+		return nil, e
+	}
+	handler := getUploadHandler(suite, fn, m)
+	return handler, nil
+}
+
+func createHandler(fileName string, suiteMap purbs.SuiteInfoMap) func(net.Conn) {
+	f := func(c net.Conn) {
+		handler, e := firstReply(c, fileName, suiteMap)
+		if e != nil {
+			handleFailure(c, e, suiteMap)
+		}
+		e = handler(c)
+		if e != nil {
+			fmt.Println("Did not succeed")
+			handleFailure(c, e, suiteMap)
 		}
 	}
 	return f
@@ -135,19 +197,50 @@ func createHandler(fileName string) func(net.Conn) {
 //SendTCPData takes in a slice of bytes
 //and sends it the given peer.
 func SendTCPData(d []byte, p *Peer, info *purb.KeyInfo) error {
+	params := purbs.NewPublicFixedParameters(info.SuiteInfos, false)
 	conn, e := net.Dial("tcp", p.Addr.String()+":"+strconv.Itoa(p.Port))
 	if e != nil {
 		return e
 	}
-	fmt.Fprintf(conn, info.Suite.String())
+	suite := info.Suite
+	fmt.Fprintf(conn, info.Suite.String() + "\n")
 	reply, e := bufio.NewReader(conn).ReadString('\n')
-	fmt.Println("Reply: ", reply)
-	fmt.Fprintf(conn, string(d))
-	message, e := bufio.NewReader(conn).ReadString('\n')
+	reply = reply[:len(reply) - 1]
+	pkBytes, e := hex.DecodeString(reply)
 	if e != nil {
 		return e
 	}
-	fmt.Println("Received: ", message)
+	pk, e := getPublicKey(suite, pkBytes)
+	if e != nil {
+		return e
+	}
+	marshalledKey, e := pk.MarshalBinary()
+	if e != nil {
+		return e
+	}
+	recipient, e := purb.NewRecipient(marshalledKey, suite)
+	if e != nil {
+		return e
+	}
+	recipients := []purbs.Recipient{recipient}
+	purb, e := purbs.Encode(d, recipients, random.New(), params, false)
+	if e != nil {
+		return e
+	}
+	blob := hex.EncodeToString(purb.ToBytes()) + "\n"
+	fmt.Fprintf(conn, blob)
+	message, e := bufio.NewReader(conn).ReadString('\n')
+	message = message[:len(message) - 1]
+	if e != nil {
+		fmt.Println("Error: ", e.Error())
+		return e
+	}
 	e = conn.Close()
 	return e
+}
+
+func getPublicKey(suite purbs.Suite, d []byte) (kyber.Point, error) {
+	p := suite.Point()
+	e := p.UnmarshalBinary(d)
+	return p, e
 }
