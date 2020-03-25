@@ -26,7 +26,6 @@ func keyPairs(suite string) {
 	}
 	keys := key.NewKeyPair(s)
 	sk, e := keys.Private.MarshalBinary()
-	pk, e := keys.Public.MarshalBinary()
 	if e != nil {
 		fmt.Println("Could not generate a new key pair because: ", e.Error())
 	} else {
@@ -36,9 +35,7 @@ func keyPairs(suite string) {
 		} else {
 			fmt.Println(info)
 		}
-		fmt.Println("Sk: ", hex.EncodeToString(sk))
-		fmt.Println("PK: ", hex.EncodeToString(pk))
-		fmt.Println("Suite: ", s)
+
 	}
 }
 
@@ -68,8 +65,6 @@ func main() {
 	suiteMap := purb.GetSuiteInfos("")
 	fmt.Println(suiteMap)
 	if *initialize {
-		fmt.Println("Suite: ", *suite)
-		fmt.Println("Key: ", *key)
 		keyPairs(*suite)
 	} else {
 		timer, e := time.ParseDuration(*updateTimer)
@@ -96,7 +91,10 @@ func main() {
 		}
 		fmt.Println("Your crypto info: ")
 		info, e := purb.NewKeyInfo(sk, s, *suiteFile)
-		fmt.Println(info)
+		if e != nil {
+			fmt.Println("Error: " , e.Error())
+		}
+		fmt.Println("info: ", info)
 		go peers.Update(timer, *baseDir, backupRules, *peersList, *backupLogs, info)
 		go peers.ListenUDP(":" + *udpPort)
 		peers.ListenTCP(":"+strconv.Itoa(*filePort), "./"+*storageFile, info)

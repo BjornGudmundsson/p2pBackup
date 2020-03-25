@@ -66,3 +66,29 @@ func GetFile(fn string) (*File, error) {
 	file := NewFile(inf, "")
 	return &file, nil
 }
+
+
+func GetLastNBytes(fn string, n int64) ([]byte, error) {
+	f, e := os.OpenFile(fn, os.O_RDONLY, os.ModeAppend)
+	defer f.Close()
+	if e != nil {
+		return nil, e
+	}
+	info, e := f.Stat()
+	if e != nil {
+		return nil, e
+	}
+	size := info.Size()
+	if size == 0 {
+		return make([]byte, n), nil
+	}
+	if size < n {
+		d := make([]byte, size)
+		_, e = f.Read(d)
+		return d, e
+	}
+	offset := size - n
+	d := make([]byte, n)
+	_, e  = f.ReadAt(d, offset)
+	return d, e
+}

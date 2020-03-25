@@ -1,7 +1,10 @@
 package files
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -92,7 +95,52 @@ func TestTomlRead(t *testing.T) {
 	defaultRules := CreateRules("garbage")
 	assert.Equal(t, int64(1000), defaultRules.MaxSize, "Default max is 1000")
 	assert.Equal(t, int64(0), defaultRules.MinSize, "Default min is 0")
-	assert.Equal(t, "", defaultRules.TypesToExclude, "Default has no regexp")
+	assert.Equal(t, "([a-z]*).csv",defaultRules.TypesToExclude, "Default has no csv")
 	assert.Equal(t, 0, len(defaultRules.BlackListedFiles), "Empty by default")
 	assert.Equal(t, time.Second, defaultRules.GetMinTime(), "Default modify time is 1 second")
+}
+
+func TestReadLastBytes(t *testing.T) {
+	f, e := os.Open("appendFile.txt")
+	defer f.Close()
+	assert.Nil(t, e, "There should be no error when opening a file")
+	inf, e2 := f.Stat()
+	assert.Nil(t, e2, "There should be no error when getting the file info")
+	file := NewFile(inf, ".")
+	e = AppendToFile(file, []byte("My name is Bjorn"))
+	assert.Nil(t, e, "Should be able to append to the file after having written to it")
+	d, e := GetLastNBytes("appendFile.txt", 5)
+	assert.Nil(t, e, "Should be able to read the last n bytes of the file")
+	assert.Equal(t, string(d), "Bjorn", "The last 5 bytes should be 'Bjorn'")
+}
+
+func TestAppendLog(t *testing.T) {
+	logFile := "logFile.txt"
+	pw := "deadbeef"
+	trustee := NewTrustee("Not real", "not a suite")
+	location := NewLocation("Bjorn", 1)
+	trustees := []Trustee{trustee}
+	locations := []Location{location}
+	entry := NewLogEntry(time.Now(), "ABCDF", 10, 10, locations, trustees)
+	entry2 := NewLogEntry(time.Now(), "ABCDF", 11, 11, locations, trustees)
+	entry3 := NewLogEntry(time.Now(), "ABCDF", 12, 12, locations, trustees)
+	e := AddBackupLog(entry, logFile, pw)
+	assert.Nil(t, e, "Should be able to add a new log entry")
+	e = AddBackupLog(entry2, logFile, pw)
+	assert.Nil(t, e, "Should be able to add a new log entry")
+	e = AddBackupLog(entry3, logFile, pw)
+	assert.Nil(t, e, "Should be able to add a new log entry")
+	ct, e := ioutil.ReadFile(logFile)
+	assert.Nil(t, e, "Should be able to access the content of the file")
+	notContain := strings.Contains(string(ct), entry.String())
+	assert.False(t, notContain, "The ciphertext should not contain the entry")
+	d, e := DecryptBackupLog(logFile, pw)
+	assert.Nil(t, e, "Should be able to decrypt it ")
+	contain := strings.Contains(string(d), entry.String())
+	assert.True(t, contain, "The decrypted file should contain the log")
+	contain = strings.Contains(string(d), entry2.String())
+	assert.True(t, contain, "The decrypted file should contain the log")
+	contain = strings.Contains(string(d), entry3.String())
+	assert.True(t, contain, "The decrypted file should contain the log")
+	fmt.Println(string(d))
 }

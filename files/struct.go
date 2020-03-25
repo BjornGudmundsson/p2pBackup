@@ -142,3 +142,87 @@ func DefaultRules() BackupData {
 	}
 	return d
 }
+
+//LogEntry is a struct representing
+//information about a backup that has been
+//sent to peers
+type LogEntry struct {
+	Date time.Time
+	Hash string
+	SizePT uint64
+	SizeCT uint64
+	Locations []Location
+	Trustees []Trustee
+}
+
+func NewLogEntry(d time.Time, h string, sizePT, sizeCT uint64, locations []Location, trustees []Trustee) LogEntry {
+	return LogEntry{
+		Date:      d,
+		Hash:      h,
+		SizePT:    sizePT,
+		SizeCT:    sizeCT,
+		Locations: locations,
+		Trustees:  trustees,
+	}
+}
+
+func (log LogEntry) String() string {
+	date := log.Date.String()
+	h := log.Hash
+	sizePT := strconv.FormatUint(log.SizePT, 10)
+	sizeCT := strconv.FormatUint(log.SizeCT, 10)
+	loc := ""
+	if len(log.Locations) != 0 {
+		loc  = "[" + log.Locations[0].String()
+		for _, location := range log.Locations[1:] {
+			loc += ", " + location.String()
+		}
+		loc += "]"
+	}
+	trustees := ""
+	if len(log.Trustees) != 0 {
+		trustees = "[" + log.Locations[0].String()
+		for _, trustee := range log.Trustees[1:] {
+			trustees += ", " + trustee.String()
+		}
+		trustees += "]"
+	}
+	return date+ "+" + h + "+" + sizePT + "+" + sizeCT + "+" + loc + "+" + trustees + "\n"
+}
+
+
+//Trustee is a struct representing
+//a key that can decrypt the backup
+type Trustee struct {
+	PublicKey string
+	Suite string
+}
+
+func NewTrustee(pk, s string) Trustee {
+	t := Trustee{
+		PublicKey:pk,
+		Suite:s,
+	}
+	return t
+}
+
+func (t Trustee) String() string {
+	return "PK: " + t.PublicKey + ";Suite: " + t.Suite
+}
+
+type Location struct {
+	Peer string
+	Index uint64
+}
+
+func NewLocation(p string, i uint64) Location {
+	l := Location{
+		Peer:  p,
+		Index: i,
+	}
+	return l
+}
+
+func (l Location) String() string {
+	return "Peer: " + l.Peer +";Index: " + strconv.FormatUint(l.Index, 10)
+}

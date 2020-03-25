@@ -9,10 +9,10 @@ clearTest2 = rm -rf $(tDir2);
 
 
 mockFiles = touch $(tDir)/f1 $(tDir)/f2 $(tDir)/f3;
-gTest = go test;
+gTest = go test -v -tags=vartime;
 rmFiles = rm -rf $(tDir);
-writeTest = touch writeFile.txt; touch appendFile.txt;
-endWriteTest = rm writeFile.txt appendFile.txt;
+writeTest = touch writeFile.txt; touch appendFile.txt; touch logFile.txt;
+endWriteTest = rm writeFile.txt appendFile.txt logFile.txt;
 read = cat appendFile.txt;
 test: 
 	$(dir) $(mockFiles) $(test2) $(writeTest) $(gTest) $(rmFiles) $(clearTest2) $(endWriteTest)

@@ -4,6 +4,8 @@ dummyContent="deadbeef lmao"
 dir="testDir"
 createDir="mkdir $dir"
 createFiles="touch $dir/t1.txt $dir/t2.txt $dir/t3.txt"
+key1="3868d3a8fb5a8b8c234eeb20aac0d0de8377fb57ff68a7393468dfc5e338a7e7"
+key2="3861d11d29b10a0d6677bef2d675d73ca55a530e8093fe3bb956ac43da13ab48"
 $createDir
 $createFiles
 #Populating the files such that they can be meaningfully backed up
@@ -24,15 +26,17 @@ make build
 #By default the name of the binary is a
 
 #Running the first peers
-./a -peers=peers1.txt -udp=3000 -fileport=8081 -logfile=log1.txt -base=$dir -storage=backupfile1.txt &
+./a -peers=peers1.txt -udp=3000 -fileport=8081 -logfile=log1.txt -base=$dir -storage=backupfile1.txt -key="3868d3a8fb5a8b8c234eeb20aac0d0de8377fb57ff68a7393468dfc5e338a7e7"&
 p1=$!
 
-./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt &
+./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt -key="3861d11d29b10a0d6677bef2d675d73ca55a530e8093fe3bb956ac43da13ab48"&
 p2=$!
 
 sleep 5s
 b1="$(cat backupfile1.txt)"
 b2="$(cat backupfile2.txt)"
+echo "$b1"
+echo "$b2"
 
 if [ "$b1" = "$b2" ]
 then

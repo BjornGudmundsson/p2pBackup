@@ -4,12 +4,11 @@ import (
 	"bufio"
 	"encoding/hex"
 	"errors"
+	"github.com/BjornGudmundsson/p2pBackup/files"
 	"net"
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/BjornGudmundsson/p2pBackup/files"
 )
 
 type file files.File
@@ -89,3 +88,4 @@ func GetPeerList(peerFile string) ([]*Peer, error) {
 	}
 	return peers, nil
 }
+
