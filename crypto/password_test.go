@@ -1,12 +1,11 @@
 package crypto
 
 import (
-	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/random"
 	"github.com/BjornGudmundsson/p2pBackup/purb"
 	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
 	"github.com/stretchr/testify/assert"
-	"go.dedis.ch/kyber/v3/group/curve25519"
+	"github.com/BjornGudmundsson/p2pBackup/kyber/group/curve25519"
 	"testing"
 )
 
@@ -31,11 +30,8 @@ func TestPasswordToPURB(t *testing.T) {
 	sk, e := PrivateKeyFromPassword(pw, suite)
 	assert.Nil(t, e, "Should be able to get private key from scalar")
 	assert.NotNil(t, sk, "Private key should be non-nil")
-	fmt.Println(sk.String())
 	p := suite.Point().Base()
-	fmt.Println("mul")
 	pk := p.Mul(sk, p)
-	fmt.Println("Mul over")
 	m, e := pk.MarshalBinary()
 	assert.Nil(t, e, "Should be able to marshal the public key")
 	recipient, e := purb.NewRecipient(m, suite)
@@ -54,5 +50,4 @@ func TestPasswordToPURB(t *testing.T) {
 	assert.Nil(t, e , "Should be able to decode the PURB")
 	assert.True(t, success, "Should be able to decode the PURB")
 	assert.Equal(t, string(decrypted), toEncrypt, "The decrypted data should be the same as the unencrypted data")
-	fmt.Println(string(decrypted))
 }
