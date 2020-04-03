@@ -14,3 +14,27 @@ func (e *CouldNotBeVerified) Error() string {
 func NotVerifiedError() error {
 	return &CouldNotBeVerified{}
 }
+
+
+type ErrorCouldNotAppend struct {
+}
+
+func (e *ErrorCouldNotAppend) Error() string {
+	return "Could not add the backup"
+}
+
+
+type ErrorIncorrectFormat struct {
+
+}
+
+func (e *ErrorIncorrectFormat) Error() string {
+	return "Incorrect format of data"
+}
+
+type ErrorCouldNotDecode struct {
+}
+
+func (e *ErrorCouldNotDecode) Error() string {
+	return "Could not decode the given data"
+}

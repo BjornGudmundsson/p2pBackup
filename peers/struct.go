@@ -4,7 +4,10 @@ import (
 	"bufio"
 	"encoding/hex"
 	"errors"
+	"github.com/BjornGudmundsson/p2pBackup/crypto"
 	"github.com/BjornGudmundsson/p2pBackup/files"
+	"github.com/BjornGudmundsson/p2pBackup/kyber"
+	"github.com/BjornGudmundsson/p2pBackup/purb"
 	"net"
 	"os"
 	"strconv"
@@ -89,3 +92,33 @@ func GetPeerList(peerFile string) ([]*Peer, error) {
 	return peers, nil
 }
 
+//EncryptionInfo keeps track of all of the
+//cryptographic information needed to take part
+//in the protocol.
+type EncryptionInfo struct {
+	Auth crypto.Authenticator
+	AuthKey kyber.Scalar
+	Link []byte
+	RetrievalInfo *purb.KeyInfo
+	Password string//This parameter is entirely optional
+	RecipientKeys []kyber.Point//This parameter is entirely optional
+}
+
+func NewEncryptionInfo(auth crypto.Authenticator, authKey kyber.Scalar, link []byte, info *purb.KeyInfo, pw string, recipients []kyber.Point) *EncryptionInfo {
+	return &EncryptionInfo{
+		Auth:          auth,
+		AuthKey:       authKey,
+		Link:          link,
+		RetrievalInfo: info,
+		Password:      pw,
+		RecipientKeys:  recipients,
+	}
+}
+
+func (enc *EncryptionInfo) Sign(msg []byte) ([]byte, error) {
+	return enc.Auth.Sign(enc.AuthKey, msg, enc.Link)
+}
+
+func (enc *EncryptionInfo) Verify(msg, sig []byte) ([]byte, error) {
+	return enc.Auth.Verify(msg, sig, enc.Link)
+}

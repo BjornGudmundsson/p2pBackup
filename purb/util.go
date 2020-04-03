@@ -1,7 +1,9 @@
 package purb
 
 import (
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/kyber"
 	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/group/curve25519"
@@ -58,8 +60,13 @@ func NewKeyInfo(sk []byte, suite purbs.Suite, suiteFile string) (*KeyInfo, error
 }
 
 func (info *KeyInfo) String() string {
+	b, e := info.PublicKey.MarshalBinary()
+	if e != nil {
+		fmt.Println(e)
+		return ""
+	}
 	sk := "SK: " + info.PrivateKey.String() + "\n"
-	pk := "PK: " + info.PublicKey.String() + "\n"
+	pk := "PK: " + hex.EncodeToString(b) + "\n"
 	s := "Suite: " + info.Suite.String()
 	return sk + pk + s
 }
