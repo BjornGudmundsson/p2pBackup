@@ -38,3 +38,18 @@ type ErrorCouldNotDecode struct {
 func (e *ErrorCouldNotDecode) Error() string {
 	return "Could not decode the given data"
 }
+
+type ErrorFailedProtocol struct {
+
+}
+
+func (e *ErrorFailedProtocol) Error() string {
+	return "Something went wrong in the protocol execution"
+}
+
+type ErrorUnableToProveStorage struct {
+}
+
+func (e *ErrorUnableToProveStorage) Error() string {
+	return "Error: Unable to prove they have the backup"
+}

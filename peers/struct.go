@@ -7,7 +7,9 @@ import (
 	"github.com/BjornGudmundsson/p2pBackup/crypto"
 	"github.com/BjornGudmundsson/p2pBackup/files"
 	"github.com/BjornGudmundsson/p2pBackup/kyber"
+	"github.com/BjornGudmundsson/p2pBackup/kyber/util/random"
 	"github.com/BjornGudmundsson/p2pBackup/purb"
+	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
 	"net"
 	"os"
 	"strconv"
@@ -121,4 +123,121 @@ func (enc *EncryptionInfo) Sign(msg []byte) ([]byte, error) {
 
 func (enc *EncryptionInfo) Verify(msg, sig []byte) ([]byte, error) {
 	return enc.Auth.Verify(msg, sig, enc.Link)
+}
+
+//PURBAnon takes in a data that is supposed to be encrypted for the entire anonymity set. I.e. anyone in
+//the peer-group can decode it using their secret key.
+func (enc *EncryptionInfo) PURBAnon(d []byte) ([]byte, error) {
+	params := purbs.NewPublicFixedParameters(enc.RetrievalInfo.SuiteInfos, false)
+	suite := enc.RetrievalInfo.Suite
+	recipients := make([]purbs.Recipient, len(enc.RecipientKeys))
+	for i, p := range enc.RecipientKeys {
+		r, e := pointToRecipient(p, suite)
+		if e != nil {
+			return nil,  e
+		}
+		recipients[i] = *r
+	}
+	pur, e := purbs.Encode(d, recipients, random.New(), params, false)
+	if e != nil {
+		return nil, e
+	}
+	return pur.ToBytes(), nil
+}
+
+func pointToRecipient(p kyber.Point, s purbs.Suite) (*purbs.Recipient, error) {
+	m, e := p.MarshalBinary()
+	if e != nil {
+		return nil, e
+	}
+	r, e := purb.NewRecipient(m, s)
+	if e != nil {
+		return nil, e
+	}
+	return &r, e
+}
+
+func scalarToRecipient(x kyber.Scalar, s purbs.Suite) (*purbs.Recipient, error) {
+	m, e := x.MarshalBinary()
+	if e != nil {
+		return nil, e
+	}
+	r, e := purb.NewPrivateRecipient(m, s)
+	if e != nil {
+		return nil, e
+	}
+	return &r, nil
+}
+
+func (enc *EncryptionInfo) PURBBackup(d []byte) ([]byte, error) {
+	x := enc.RetrievalInfo.PrivateKey
+	pw := enc.Password
+	suite := enc.RetrievalInfo.Suite
+	pwKey, e := crypto.PrivateKeyFromPassword(pw, suite)
+	if e != nil {
+		return nil, e
+	}
+	pwPoint := suite.Point().Base()
+	pwPoint = pwPoint.Mul(pwKey, pwPoint)
+	pwRecipient, e := pointToRecipient(pwPoint, suite)
+	if e != nil {
+		return nil, e
+	}
+	publicKey := suite.Point().Base()
+	publicKey = publicKey.Mul(x, publicKey)
+	selfRecipient, e := pointToRecipient(publicKey, suite)
+	if e != nil {
+		return nil, e
+	}
+	recipients := make([]purbs.Recipient, 0)
+	recipients = append(recipients, *pwRecipient)
+	recipients = append(recipients, *selfRecipient)
+	for _, p  := range enc.RecipientKeys {
+		r, e := pointToRecipient(p, suite)
+		if e != nil {
+			return nil, e
+		}
+		recipients = append(recipients, *r)
+	}
+	params := purbs.NewPublicFixedParameters(enc.RetrievalInfo.SuiteInfos, false)
+	pur, e := purbs.Encode(d, recipients,random.New(), params, false)
+	if e != nil {
+		return nil, e
+	}
+	blob := pur.ToBytes()
+	return blob, nil
+}
+
+func (enc *EncryptionInfo) DecodePURBBackup(blob []byte) ([]byte, error) {
+	params := purbs.NewPublicFixedParameters(enc.RetrievalInfo.SuiteInfos, false)
+	x := enc.RetrievalInfo.PrivateKey
+	suite := enc.RetrievalInfo.Suite
+	r, e := scalarToRecipient(x, suite)
+	if e == nil {
+		v, d, e := purbs.Decode(blob, r, params, false)
+		if e == nil {
+			if v {
+				return d, nil
+			}
+		}
+	}
+	pw := enc.Password
+	k, e := crypto.PrivateKeyFromPassword(pw, suite)
+	if e == nil {
+		kr, e := scalarToRecipient(k, suite)
+		if e == nil {
+			v, d, e := purbs.Decode(blob, kr, params, false)
+			if e == nil && v {
+				return d, nil
+			}
+		}
+	}
+	return nil, new(ErrorCouldNotDecode)
+}
+
+
+type BackupInfo struct {
+	X kyber.Scalar//The secret to the backup.
+	StartIndex int64
+	Size int64
 }

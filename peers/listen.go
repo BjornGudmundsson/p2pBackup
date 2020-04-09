@@ -9,7 +9,6 @@ import (
 	"github.com/BjornGudmundsson/p2pBackup/purb"
 	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
 	"net"
-	"strconv"
 )
 
 
@@ -163,7 +162,7 @@ func createHandler(encInfo *EncryptionInfo, backupHandler files.BackupHandler) f
 //and sends it the given peer.
 func SendTCPData(d []byte, p *Peer, encInfo *EncryptionInfo) error {
 	info := encInfo.RetrievalInfo
-	conn, e := net.Dial("tcp", p.Addr.String()+":"+strconv.Itoa(p.Port))
+	conn, e := getTCPConn(p)
 	if e != nil {
 		return e
 	}

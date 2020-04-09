@@ -1,15 +1,20 @@
 package peers
 
 import (
+	"bufio"
 	"encoding/hex"
 	"github.com/BjornGudmundsson/p2pBackup/kyber"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/random"
 	"github.com/BjornGudmundsson/p2pBackup/purb"
 	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
+	"net"
+	"strconv"
 	"strings"
 )
 
 const delim = ";"
+
+const errorIndicator = "Error: "
 
 
 //signPublicKey take a marshalled public key and returns the same key along
@@ -100,5 +105,30 @@ func signAndPURB(signer *EncryptionInfo, recipients []purbs.Recipient, suite pur
 		return nil, e
 	}
 	return p.ToBytes(), nil
+}
+
+
+func getTCPConn(p *Peer) (net.Conn, error) {
+	c, e := net.Dial("tcp", p.Addr.String()+":"+strconv.Itoa(p.Port))
+	return c, e
+}
+
+func readNBytesFromConnection(c net.Conn, n int) ([]byte, error) {
+	reader := bufio.NewReader(c)
+	buffer := make([]byte, n)
+	_, e := reader.Read(buffer)
+	if e != nil {
+		return nil, e
+	}
+	return buffer, nil
+}
+
+func checkIfFailed(d []byte) error {
+	s := string(d)
+	isError := strings.Contains(s, errorIndicator)
+	if isError {
+		return new(ErrorFailedProtocol)
+	}
+	return nil
 }
 
