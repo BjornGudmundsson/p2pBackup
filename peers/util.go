@@ -108,8 +108,8 @@ func signAndPURB(signer *EncryptionInfo, recipients []purbs.Recipient, suite pur
 }
 
 
-func getTCPConn(p *Peer) (net.Conn, error) {
-	c, e := net.Dial("tcp", p.Addr.String()+":"+strconv.Itoa(p.Port))
+func getTCPConn(p Peer) (net.Conn, error) {
+	c, e := net.Dial("tcp", p.Address().String()+":"+strconv.Itoa(p.Port()))
 	return c, e
 }
 

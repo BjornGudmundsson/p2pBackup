@@ -27,8 +27,8 @@ echo $publicAuthKey2 >> set.txt;
 touch peers1.txt peers2.txt;
 
 #Setting up different peer files
-echo "Ulf 127.0.0.1 8081 3000 ABCDEF ECDSA" >> peers1.txt;
-echo "Bjo 127.0.0.1 8082 3001 ABCDEF ECDSA" >> peers2.txt;
+echo "127.0.0.1 8081 " >> peers1.txt;
+echo "127.0.0.1 8082 " >> peers2.txt;
 
 make build;
 #By default the name of the binary is a

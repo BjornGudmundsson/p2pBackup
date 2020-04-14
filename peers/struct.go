@@ -2,8 +2,8 @@ package peers
 
 import (
 	"bufio"
-	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/crypto"
 	"github.com/BjornGudmundsson/p2pBackup/files"
 	"github.com/BjornGudmundsson/p2pBackup/kyber"
@@ -14,78 +14,97 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type file files.File
 
-//Peer is a container of how
-//information about a peer is maintained.
-type Peer struct {
-	Name      string
-	Addr      net.IP
-	Port      int
-	PublicKey []byte
-	Suite     string
-	TCP       int
+type Peer interface {
+	Address() net.IP
+	Port() int
+	LastSeen() time.Time
+	fmt.Stringer
+	TransmissionProtocol() string
+	Available() bool
 }
 
-//SuiteIsSupported take in a suite and says if that
-//ciphersuite is supported.
-func SuiteIsSupported(s string) bool {
-	return true
+//TCPPeer is a container of how
+//information about a peer is maintained.
+type TCPPeer struct {
+	Addr      net.IP
+	port      int
+	seen time.Time
+	available bool
 }
+
+func (p *TCPPeer) Address() net.IP {
+	return p.Addr
+}
+
+func (p *TCPPeer) Port() int {
+	return p.port
+}
+
+func (p *TCPPeer) LastSeen() time.Time {
+	return p.seen
+}
+
+func (p *TCPPeer) Available() bool {
+	return p.available
+}
+
+func (p *TCPPeer) String() string {
+	return "Addr: " + p.Address().String() + " " + "Port: " + strconv.Itoa(p.Port())
+}
+
+func (p *TCPPeer) TransmissionProtocol() string {
+	return "tcp"
+}
+
+
 
 //NewPeer takes in a description string of the form
 //[Name IP hex_of_public_key CipherSuite_being_used]
 //and returns a pointer to a peer if it is a valid string
 //else it returns an error.
-func NewPeer(desc string) (*Peer, error) {
+func NewPeer(desc string) (*TCPPeer, error) {
 	fields := strings.Split(desc, " ")
-	if len(fields) != 6 {
-		return nil, errors.New("Not enough fields")
+	if len(fields) != 3 {
+		return nil, errors.New("not the right amount of fields")
 	}
-	p := &Peer{}
-	p.Name = fields[0]
-	ip := net.ParseIP(fields[1])
+	p := &TCPPeer{}
+	ip := net.ParseIP(fields[0])
 	if ip == nil {
-		return nil, errors.New("Could not parse IP")
+		return nil, errors.New("could not parse IP")
 	}
-	port, eport := strconv.Atoi(fields[2])
-	if eport != nil {
-		return nil, eport
+	port,e := strconv.Atoi(fields[1])
+	if e != nil {
+		return nil, e
 	}
-	tcpPort, etcp := strconv.Atoi(fields[3])
-	if etcp != nil {
-		return nil, etcp
-	}
-	p.TCP = tcpPort
-	p.Port = int(port)
 	p.Addr = ip
-	d, ehex := hex.DecodeString(fields[4])
-	if ehex != nil {
-		return nil, ehex
-	}
-	p.PublicKey = d
-	if !SuiteIsSupported(fields[5]) {
-		return nil, errors.New("This suite is not supported")
-	}
-	p.Suite = fields[5]
+	p.port = port
+	p.seen = time.Now()
+	p.available = true
 	return p, nil
 }
 
 //GetPeerList takes in a file that has all the known peers
 //and returns a slice with all of the peers in the file.
 //If the file can't read or one of the peers is malformed it returns an error.
-func GetPeerList(peerFile string) ([]*Peer, error) {
+func GetPeerList(peerFile string) ([]*TCPPeer, error) {
 	f, e := os.Open(peerFile)
 	if e != nil {
 		return nil, e
 	}
 	defer f.Close()
-	peers := make([]*Peer, 0)
+	peers := make([]*TCPPeer, 0)
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		p, e := NewPeer(scanner.Text())
+		txt := scanner.Text()
+		if txt == "" {
+			continue
+		}
+		p, e := NewPeer(txt)
 		if e != nil {
 			return nil, e
 		}

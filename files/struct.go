@@ -159,7 +159,6 @@ func NewLogEntry(d time.Time, h string, sizePT, sizeCT uint64, locations []Locat
 	return LogEntry{
 		Date:      d,
 		Hash:      h,
-		SizePT:    sizePT,
 		SizeCT:    sizeCT,
 		Locations: locations,
 		Trustees:  trustees,

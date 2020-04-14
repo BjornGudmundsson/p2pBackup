@@ -160,7 +160,7 @@ func createHandler(encInfo *EncryptionInfo, backupHandler files.BackupHandler) f
 
 //SendTCPData takes in a slice of bytes
 //and sends it the given peer.
-func SendTCPData(d []byte, p *Peer, encInfo *EncryptionInfo) error {
+func SendTCPData(d []byte, p Peer, encInfo *EncryptionInfo) error {
 	info := encInfo.RetrievalInfo
 	conn, e := getTCPConn(p)
 	if e != nil {

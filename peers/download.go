@@ -24,7 +24,7 @@ func getDownloadHandler(bh files.BackupHandler, start, size int64) tcpHandler {
 	return f
 }
 
-func RetrieveBackup(p *Peer,info BackupInfo, encryptionInfo *EncryptionInfo) ([]byte, error) {
+func RetrieveBackup(p *TCPPeer,info BackupInfo, encryptionInfo *EncryptionInfo) ([]byte, error) {
 	start, size := info.StartIndex, info.Size
 	msg := strconv.FormatInt(start, 10) + ";" + strconv.FormatInt(size, 10)
 	c, e := getTCPConn(p)

@@ -119,10 +119,15 @@ func main() {
 			fmt.Println("Not a valid authentication key: ", e)
 			return
 		}
+		container, e := peers.NewContainerFromFile(*peersList)
+		if e != nil {
+			fmt.Println("Could not get the peer list")
+			return
+		}
 		backupHandler := files.NewBackupBuffer("./"+*storageFile)
 		auth, e := crypto.NewAnonAuthenticator(s, *setString)
 		encInfo := peers.NewEncryptionInfo(auth, authKey, nil, info, "", nil)
-		go peers.Update(timer, *baseDir, backupRules, *peersList, *backupLogs, encInfo)
+		go peers.Update(timer, *baseDir, backupRules, container, *backupLogs, encInfo)
 		go peers.ListenUDP(":" + *udpPort)
 		peers.ListenTCP(":"+strconv.Itoa(*filePort), encInfo, backupHandler)
 	}
