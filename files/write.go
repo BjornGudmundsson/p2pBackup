@@ -1,6 +1,7 @@
 package files
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -20,6 +21,7 @@ func AppendToFile(f File, data []byte) error {
 		return e
 	}
 	start := f.Size
+	fmt.Println("Start: ", start)
 	_, e = fd.WriteAt(data, start)
 	if e != nil {
 		return e

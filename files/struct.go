@@ -1,9 +1,11 @@
 package files
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -143,85 +145,168 @@ func DefaultRules() BackupData {
 	return d
 }
 
+type Locations []uint64//This may change later
+
+type Log interface {
+	Date() time.Time
+	Digest() string
+	Size() uint64
+	Retrieve() Locations
+	fmt.Stringer
+	MarshallToString() string
+	UnmarshalFromString(s string) (Log, error)
+	FindLogs(data []byte) []Log
+}
+
 //LogEntry is a struct representing
 //information about a backup that has been
 //sent to peers
 type LogEntry struct {
-	Date time.Time
-	Hash string
-	SizePT uint64
-	SizeCT uint64
-	Locations []Location
-	Trustees []Trustee
+	date time.Time
+	hash string
+	sizeCT uint64
+	indexes []uint64
 }
 
-func NewLogEntry(d time.Time, h string, sizePT, sizeCT uint64, locations []Location, trustees []Trustee) LogEntry {
+func NewLogEntry(d time.Time, h string, sizeCT uint64, indexes []uint64) LogEntry {
 	return LogEntry{
-		Date:      d,
-		Hash:      h,
-		SizeCT:    sizeCT,
-		Locations: locations,
-		Trustees:  trustees,
+		date:      d,
+		hash:      h,
+		sizeCT:    sizeCT,
+		indexes:   indexes,
 	}
+}
+
+func (log LogEntry) Date() time.Time {
+	return log.date
+}
+
+func (log LogEntry) Digest() string {
+	return log.hash
+}
+
+func (log LogEntry) Size() uint64 {
+	return log.sizeCT
+}
+
+func (log LogEntry) Retrieve() Locations {
+	return log.indexes
 }
 
 func (log LogEntry) String() string {
-	date := log.Date.String()
-	h := log.Hash
-	sizePT := strconv.FormatUint(log.SizePT, 10)
-	sizeCT := strconv.FormatUint(log.SizeCT, 10)
-	loc := ""
-	if len(log.Locations) != 0 {
-		loc  = "[" + log.Locations[0].String()
-		for _, location := range log.Locations[1:] {
-			loc += ", " + location.String()
+	l := "Log:["
+	l += "Hash:" + log.hash + " "
+	l += "Size: " + strconv.FormatUint(log.sizeCT, 10) + " "
+	y, m, d := log.date.Date()
+	date := "Date: " + strconv.Itoa(y) + "/" + m.String() + "/" + strconv.Itoa(d)
+	l += date + " "
+	ind := "("
+	if len(log.indexes) != 0 {
+		for _, i := range log.indexes[:len(log.indexes) - 1] {
+			ind += strconv.FormatUint(i, 10) + ","
 		}
-		loc += "]"
+		ind += strconv.FormatUint(log.indexes[len(log.indexes) - 1], 10)
 	}
-	trustees := ""
-	if len(log.Trustees) != 0 {
-		trustees = "[" + log.Locations[0].String()
-		for _, trustee := range log.Trustees[1:] {
-			trustees += ", " + trustee.String()
-		}
-		trustees += "]"
-	}
-	return date+ "+" + h + "+" + sizePT + "+" + sizeCT + "+" + loc + "+" + trustees + "\n"
-}
-
-
-//Trustee is a struct representing
-//a key that can decrypt the backup
-type Trustee struct {
-	PublicKey string
-	Suite string
-}
-
-func NewTrustee(pk, s string) Trustee {
-	t := Trustee{
-		PublicKey:pk,
-		Suite:s,
-	}
-	return t
-}
-
-func (t Trustee) String() string {
-	return "PK: " + t.PublicKey + ";Suite: " + t.Suite
-}
-
-type Location struct {
-	Peer string
-	Index uint64
-}
-
-func NewLocation(p string, i uint64) Location {
-	l := Location{
-		Peer:  p,
-		Index: i,
-	}
+	ind += ")"
+	l += "Index: " + ind
+	l += "]"
 	return l
 }
 
-func (l Location) String() string {
-	return "Peer: " + l.Peer +";Index: " + strconv.FormatUint(l.Index, 10)
+func (log LogEntry) MarshallToString() string {
+	l := "Log:["
+	l += log.hash + " "
+	l += strconv.FormatUint(log.sizeCT, 10) + " "
+	y, m, d := log.date.Date()
+	date := strconv.Itoa(y) + "/" + m.String() + "/" + strconv.Itoa(d)
+	l += date + " "
+	ind := "("
+	if len(log.indexes) != 0 {
+		for _, i := range log.indexes[:len(log.indexes) - 1] {
+			ind += strconv.FormatUint(i, 10) + ","
+		}
+		ind += strconv.FormatUint(log.indexes[len(log.indexes) - 1], 10)
+	}
+	ind += ")"
+	l += ind
+	l += "]"
+	return l
+}
+
+func (log LogEntry) UnmarshalFromString(s string) (Log, error) {
+	l := len(s)
+	if l < 6 {
+		return nil, new(ErrorIncorrectLogFormat)
+	}
+	newLog := LogEntry{}
+	content := s[5:l-1]
+	fields := strings.Fields(content)
+	if len(fields) != 4 {
+		return nil, new(ErrorIncorrectLogFormat)
+	}
+	newLog.hash = fields[0]
+	size, e := strconv.Atoi(fields[1])
+	if e != nil {
+		return nil, e
+	}
+	newLog.sizeCT = uint64(size)
+	ymd := strings.Split(fields[2], "/")
+	if len(ymd) != 3 {
+		return nil, new(ErrorIncorrectLogFormat)
+	}
+	y, e := strconv.Atoi(ymd[0])
+	m, e := strconv.Atoi(ymd[1])
+	d, e := strconv.Atoi(ymd[2])
+	if e != nil {
+		return nil, e
+	}
+	date := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.Local)
+	newLog.date = date
+	parentheses := fields[3]
+	lp := len(parentheses)
+	fmt.Println(parentheses)
+	if  parentheses[0] != '(' || parentheses[lp - 1] != ')' {
+		return nil, new(ErrorIncorrectLogFormat)
+	}
+	content = parentheses[1:lp-1]
+	indexes := strings.Split(content, ",")
+	retrieval := make(Locations, len(indexes))
+	for i, v := range indexes {
+		num, e := strconv.Atoi(v)
+		if e != nil {
+			return nil, e
+		}
+		retrieval[i] = uint64(num)
+	}
+	newLog.indexes = retrieval
+	return newLog, nil
+}
+
+func (log LogEntry) FindLogs(data []byte) []Log {
+	s := string(data)
+	logs := make([]Log, 0)
+	for s != "" {
+		ind := strings.Index(s, "Log:[")
+		if ind == -1 {
+			break
+		} else {
+			i := ind + len("Log:[")
+			sp := s[i:]
+			end := strings.Index(sp, "]")
+			if end == -1 {
+				break
+			}
+			content := sp[:end + 1]
+			fmt.Println(content)
+			l, e := log.UnmarshalFromString(content)
+			if e != nil {
+				fmt.Println(e)
+			}
+			if e == nil {
+				logs = append(logs, l)
+			}
+			s = s[ind + len("Log:[") + end + 1:]
+		}
+	}
+	return logs
 }

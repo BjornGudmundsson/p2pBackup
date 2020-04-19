@@ -1,8 +1,11 @@
 package files
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -76,10 +79,10 @@ func NewBackupBuffer(fn string) BackupHandler {
 
 type LogWriter interface {
 	CheckIfBackedUp(d []byte) (bool, error)
-	Log(l LogEntry) error
-	GetLogs() ([]LogEntry, error)
-	GetLatestLog() (LogEntry, error)
-	NewLog(d []byte, indexes []int) LogEntry
+	Log(l Log) error
+	GetLogs() ([]Log, error)
+	GetLatestLog() (Log, error)
+	NewLog(d []byte, loc Locations) Log
 }
 
 type LogHandler struct {
@@ -96,35 +99,71 @@ func (lh *LogHandler) CheckIfBackedUp(d []byte) (bool, error) {
 		return false, e
 	}
 	for _, log := range logs {
-		if hxDigest == log.Hash {
+		if hxDigest == log.Digest() {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func (lh *LogHandler) Log(l LogEntry) error {
+func (lh *LogHandler) Log(l Log) error {
 	return AddBackupLog(l, lh.fn, lh.pw)
 }
 
-func (lh *LogHandler) GetLogs() ([]LogEntry, error) {
+func (lh *LogHandler) GetLogs() ([]Log, error) {
 	ct, e := ioutil.ReadFile(lh.fn)
 	if e != nil {
 		return nil, e
 	}
-	k := sha256.Sum256([]byte(lh.pw))
-
-	return nil, nil
+	k := pwToKey(lh.pw)
+	key := k[:KEYLEN]
+	iv := make([]byte, KEYLEN)
+	block, e := aes.NewCipher(key)
+	if e != nil {
+		return nil, e
+	}
+	dec := cipher.NewCBCDecrypter(block, iv)
+	pt := make([]byte, len(ct))
+	fmt.Println("CT: ", int(ct[len(ct) - 1]))
+	dec.CryptBlocks(pt, ct)
+	logs := NewEmptyLogEntry().FindLogs(pt)
+	if len(logs) == 0 {
+		fmt.Println("Bjo")
+		return nil, new(ErrorNoLogs)
+	}
+	return logs, nil
 }
 
-func (lh *LogHandler) GetLatestLog() (LogEntry, error) {
-	return LogEntry{}, nil
+func (lh *LogHandler) GetLatestLog() (Log, error) {
+	logs, e := lh.GetLogs()
+	if e != nil {
+		return nil, e
+	}
+	l := len(logs)
+	if l == 0 {
+		return nil, new(ErrorNoLogs)
+	}
+	return logs[l - 1], nil
 }
 
-func (lh *LogHandler) NewLog(d []byte, indexes []int) LogEntry {
-	return LogEntry{}
+func (lh *LogHandler) NewLog(d []byte, loc Locations) Log {
+	digest := sha256.Sum256(d)
+	log := LogEntry{
+		indexes:loc,
+		hash: hex.EncodeToString(digest[:]),
+		sizeCT:uint64(len(d)),
+		date:time.Now(),
+	}
+	return log
 }
 
 func NewEncryptedLogWriter(fn, pw string) (LogWriter, error) {
-	return nil, nil
+	return &LogHandler{
+		fn: fn,
+		pw: pw,
+	}, nil
+}
+
+func NewEmptyLogEntry() Log {
+	return LogEntry{}
 }

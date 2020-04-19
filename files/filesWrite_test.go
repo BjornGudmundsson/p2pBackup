@@ -2,9 +2,7 @@ package files
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -115,32 +113,27 @@ func TestReadLastBytes(t *testing.T) {
 }
 
 func TestAppendLog(t *testing.T) {
-	logFile := "logFile.txt"
-	pw := "deadbeef"
-	trustee := NewTrustee("Not real", "not a suite")
-	location := NewLocation("Bjorn", 1)
-	trustees := []Trustee{trustee}
-	locations := []Location{location}
-	entry := NewLogEntry(time.Now(), "ABCDF", 10, 10, locations, trustees)
-	entry2 := NewLogEntry(time.Now(), "ABCDF", 11, 11, locations, trustees)
-	entry3 := NewLogEntry(time.Now(), "ABCDF", 12, 12, locations, trustees)
-	e := AddBackupLog(entry, logFile, pw)
-	assert.Nil(t, e, "Should be able to add a new log entry")
-	e = AddBackupLog(entry2, logFile, pw)
-	assert.Nil(t, e, "Should be able to add a new log entry")
-	e = AddBackupLog(entry3, logFile, pw)
-	assert.Nil(t, e, "Should be able to add a new log entry")
-	ct, e := ioutil.ReadFile(logFile)
-	assert.Nil(t, e, "Should be able to access the content of the file")
-	notContain := strings.Contains(string(ct), entry.String())
-	assert.False(t, notContain, "The ciphertext should not contain the entry")
-	d, e := DecryptBackupLog(logFile, pw)
-	assert.Nil(t, e, "Should be able to decrypt it ")
-	contain := strings.Contains(string(d), entry.String())
-	assert.True(t, contain, "The decrypted file should contain the log")
-	contain = strings.Contains(string(d), entry2.String())
-	assert.True(t, contain, "The decrypted file should contain the log")
-	contain = strings.Contains(string(d), entry3.String())
-	assert.True(t, contain, "The decrypted file should contain the log")
-	fmt.Println(string(d))
+	data := []byte("deadbeef lmao")
+	fn := "logFile.txt"
+	handler, e := NewEncryptedLogWriter(fn, "lmao")
+	assert.NotNil(t, handler, "handler should be non nil")
+	assert.Nil(t, e, "Should be able to to get log writer")
+	locations := []uint64{10, 17}
+	log := handler.NewLog(data, locations)
+	assert.NotNil(t, log, "Log should be non nil")
+	e = handler.Log(log)
+	assert.Nil(t, e, "Should be able to add a log")
+	logs, e := handler.GetLogs()
+	assert.Nil(t, e, "should be able to retrieve logs")
+	assert.Equal(t, 1, len(logs))
+	newData := []byte("deadbeef lmfao")
+	newLog := handler.NewLog(newData, locations)
+	e = handler.Log(newLog)
+	assert.Nil(t, e, "Should be able to add 2 logs")
+	logs, e = handler.GetLogs()
+	assert.Nil(t, e, "Should still be able to get logs")
+	assert.Equal(t, 2, len(logs))
+	for _, l := range logs {
+		fmt.Println(l)
+	}
 }

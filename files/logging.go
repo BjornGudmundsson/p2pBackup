@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"golang.org/x/crypto/pbkdf2"
 	"io/ioutil"
 )
@@ -26,12 +27,19 @@ func padData(d []byte) []byte {
 	return padded
 }
 
-func AddBackupLog(log LogEntry, logFile string, pw string) error {
+func pwToKey(pw string) []byte {
 	salt := sha256.New().Sum([]byte(pw))
 	key := pbkdf2.Key([]byte(pw), salt, ITERATIONS, KEYLEN, sha256.New)
-	entry := log.String()
+	return key
+}
+func AddBackupLog(log Log, logFile string, pw string) error {
+	salt := sha256.New().Sum([]byte(pw))
+	key := pbkdf2.Key([]byte(pw), salt, ITERATIONS, KEYLEN, sha256.New)
+	entry := log.MarshallToString()
 	padded := padData([]byte(entry))
+	fmt.Println("Padded: ", len(padded))
 	iv, e := GetLastNBytes(logFile, KEYLEN)
+	fmt.Println("IV: ", string(iv))
 	if e != nil {
 		return e
 	}
