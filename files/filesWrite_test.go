@@ -1,7 +1,6 @@
 package files
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -119,21 +118,30 @@ func TestAppendLog(t *testing.T) {
 	assert.NotNil(t, handler, "handler should be non nil")
 	assert.Nil(t, e, "Should be able to to get log writer")
 	locations := []uint64{10, 17}
-	log := handler.NewLog(data, locations)
+	log := handler.NewLog(data, locations, data)
 	assert.NotNil(t, log, "Log should be non nil")
 	e = handler.Log(log)
 	assert.Nil(t, e, "Should be able to add a log")
+	latest, e := handler.GetLatestLog()
+	assert.Nil(t, e, "Should be able to get the latest log")
+	assert.Equal(t, log.MarshallToString(), latest.MarshallToString(), "Should be the same log")
 	logs, e := handler.GetLogs()
 	assert.Nil(t, e, "should be able to retrieve logs")
 	assert.Equal(t, 1, len(logs))
 	newData := []byte("deadbeef lmfao")
-	newLog := handler.NewLog(newData, locations)
+	newLog := handler.NewLog(newData, locations, newData)
 	e = handler.Log(newLog)
 	assert.Nil(t, e, "Should be able to add 2 logs")
 	logs, e = handler.GetLogs()
 	assert.Nil(t, e, "Should still be able to get logs")
 	assert.Equal(t, 2, len(logs))
-	for _, l := range logs {
-		fmt.Println(l)
-	}
+	latest, e = handler.GetLatestLog()
+	assert.Nil(t, e, "Should be able to get the latest log")
+	assert.Equal(t, latest.MarshallToString(), newLog.MarshallToString(), "Should be the later log")
+	contains, e := handler.CheckIfBackedUp(data)
+	assert.Nil(t, e, "Should contain the first log")
+	assert.True(t, contains, "Should contain the first log")
+	contains, e = handler.CheckIfBackedUp(newData)
+	assert.Nil(t, e, "Should contain the second log")
+	assert.True(t, contains, "Should contain the second log")
 }

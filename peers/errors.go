@@ -53,3 +53,15 @@ type ErrorUnableToProveStorage struct {
 func (e *ErrorUnableToProveStorage) Error() string {
 	return "Error: Unable to prove they have the backup"
 }
+
+type ErrorUnableToVerify struct {}
+
+func (e *ErrorUnableToVerify) Error() string {
+	return "Error: Unable to verify validity of backup retrieval"
+}
+
+type ErrorCouldNotRetrieveBackup struct {}
+
+func (e *ErrorCouldNotRetrieveBackup) Error() string {
+	return "Error: Could not find any peer that had the backup"
+}

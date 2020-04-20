@@ -5,9 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"golang.org/x/crypto/pbkdf2"
-	"io/ioutil"
 )
 
 const (
@@ -37,9 +35,7 @@ func AddBackupLog(log Log, logFile string, pw string) error {
 	key := pbkdf2.Key([]byte(pw), salt, ITERATIONS, KEYLEN, sha256.New)
 	entry := log.MarshallToString()
 	padded := padData([]byte(entry))
-	fmt.Println("Padded: ", len(padded))
 	iv, e := GetLastNBytes(logFile, KEYLEN)
-	fmt.Println("IV: ", string(iv))
 	if e != nil {
 		return e
 	}
@@ -58,21 +54,4 @@ func AddBackupLog(log Log, logFile string, pw string) error {
 		return e
 	}
 	return AppendToFile(*f, encryptedLog)
-}
-
-func DecryptBackupLog(logFile, pw string) ([]byte, error) {
-	salt := sha256.New().Sum([]byte(pw))
-	key := pbkdf2.Key([]byte(pw), salt, ITERATIONS, KEYLEN, sha256.New)
-	d, e := ioutil.ReadFile(logFile)
-	if e != nil {
-		return nil, e
-	}
-	aes, e := aes2.NewCipher(key)
-	if e != nil {
-		return nil, e
-	}
-	dec := cipher.NewCBCDecrypter(aes, make([]byte, KEYLEN))
-	dst := make([]byte, len(d))
-	dec.CryptBlocks(dst, d)
-	return dst, nil
 }

@@ -150,6 +150,7 @@ type Locations []uint64//This may change later
 type Log interface {
 	Date() time.Time
 	Digest() string
+	Key() string
 	Size() uint64
 	Retrieve() Locations
 	fmt.Stringer
@@ -166,15 +167,7 @@ type LogEntry struct {
 	hash string
 	sizeCT uint64
 	indexes []uint64
-}
-
-func NewLogEntry(d time.Time, h string, sizeCT uint64, indexes []uint64) LogEntry {
-	return LogEntry{
-		date:      d,
-		hash:      h,
-		sizeCT:    sizeCT,
-		indexes:   indexes,
-	}
+	key string
 }
 
 func (log LogEntry) Date() time.Time {
@@ -208,7 +201,8 @@ func (log LogEntry) String() string {
 		ind += strconv.FormatUint(log.indexes[len(log.indexes) - 1], 10)
 	}
 	ind += ")"
-	l += "Index: " + ind
+	l += "Index: " + ind + " "
+	l += "Key: " + log.key
 	l += "]"
 	return l
 }
@@ -227,8 +221,9 @@ func (log LogEntry) MarshallToString() string {
 		}
 		ind += strconv.FormatUint(log.indexes[len(log.indexes) - 1], 10)
 	}
-	ind += ")"
+	ind += ") "
 	l += ind
+	l += log.key
 	l += "]"
 	return l
 }
@@ -239,9 +234,9 @@ func (log LogEntry) UnmarshalFromString(s string) (Log, error) {
 		return nil, new(ErrorIncorrectLogFormat)
 	}
 	newLog := LogEntry{}
-	content := s[5:l-1]
+	content := s
 	fields := strings.Fields(content)
-	if len(fields) != 4 {
+	if len(fields) != 5 {
 		return nil, new(ErrorIncorrectLogFormat)
 	}
 	newLog.hash = fields[0]
@@ -250,21 +245,27 @@ func (log LogEntry) UnmarshalFromString(s string) (Log, error) {
 		return nil, e
 	}
 	newLog.sizeCT = uint64(size)
+
 	ymd := strings.Split(fields[2], "/")
 	if len(ymd) != 3 {
 		return nil, new(ErrorIncorrectLogFormat)
 	}
 	y, e := strconv.Atoi(ymd[0])
-	m, e := strconv.Atoi(ymd[1])
+	if e != nil {
+		return nil, e
+	}
+	m, e := getMonth(ymd[1])
+	if e != nil {
+		return nil, e
+	}
 	d, e := strconv.Atoi(ymd[2])
 	if e != nil {
 		return nil, e
 	}
-	date := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.Local)
+	date := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
 	newLog.date = date
 	parentheses := fields[3]
 	lp := len(parentheses)
-	fmt.Println(parentheses)
 	if  parentheses[0] != '(' || parentheses[lp - 1] != ')' {
 		return nil, new(ErrorIncorrectLogFormat)
 	}
@@ -273,12 +274,12 @@ func (log LogEntry) UnmarshalFromString(s string) (Log, error) {
 	retrieval := make(Locations, len(indexes))
 	for i, v := range indexes {
 		num, e := strconv.Atoi(v)
-		if e != nil {
-			return nil, e
+		if e == nil {
+			retrieval[i] = uint64(num)
 		}
-		retrieval[i] = uint64(num)
 	}
 	newLog.indexes = retrieval
+	newLog.key = fields[4]
 	return newLog, nil
 }
 
@@ -296,8 +297,7 @@ func (log LogEntry) FindLogs(data []byte) []Log {
 			if end == -1 {
 				break
 			}
-			content := sp[:end + 1]
-			fmt.Println(content)
+			content := sp[:end]
 			l, e := log.UnmarshalFromString(content)
 			if e != nil {
 				fmt.Println(e)
@@ -309,4 +309,28 @@ func (log LogEntry) FindLogs(data []byte) []Log {
 		}
 	}
 	return logs
+}
+
+func (log LogEntry) Key() string {
+	return log.key
+}
+
+func getMonth(m string) (time.Month, error) {
+	months := make(map[string]time.Month)
+	months[time.January.String()] = time.January
+	months[time.February.String()] = time.February
+	months[time.March.String()] = time.March
+	months[time.April.String()] = time.April
+	months[time.May.String()] = time.May
+	months[time.June.String()] = time.June
+	months[time.July.String()] = time.July
+	months[time.August.String()] = time.August
+	months[time.September.String()] = time.September
+	months[time.November.String()] = time.November
+	months[time.October.String()] = time.October
+	months[time.December.String()] = time.December
+	if month, ok := months[m]; ok {
+		return month, nil
+	}
+	return 0, new(ErrorInvalidMonth)
 }

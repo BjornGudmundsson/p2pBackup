@@ -9,6 +9,8 @@ import (
 	"github.com/BjornGudmundsson/p2pBackup/purb"
 	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
 	"net"
+	"strconv"
+	"strings"
 )
 
 
@@ -110,7 +112,8 @@ func getUploadHandler(suite purbs.Suite,encInfo *EncryptionInfo, backupHandler f
 		if ind == -1 {
 			return new(ErrorCouldNotAppend)
 		}
-		_, e = fmt.Fprintf(c, "Done writing\n")
+		msg := "Ok " + strconv.FormatInt(ind, 10) + "\n"
+		_, e = fmt.Fprintf(c, msg)
 		if e != nil {
 			return e
 		}
@@ -131,8 +134,13 @@ func firstReply(conn net.Conn,encInfo *EncryptionInfo, backupHandler files.Backu
 		return nil, e
 	}
 	if download {
+		start, size, e := getIndexes(s)
+		if e != nil {
+			return nil, e
+		}
+		downloadHandler := getDownloadHandler(backupHandler, start, size)
 		//Handle download
-		return nil, nil
+		return downloadHandler, nil
 	}
 	suite, e := purb.GetSuite(s)
 	if e != nil {
@@ -160,11 +168,11 @@ func createHandler(encInfo *EncryptionInfo, backupHandler files.BackupHandler) f
 
 //SendTCPData takes in a slice of bytes
 //and sends it the given peer.
-func SendTCPData(d []byte, p Peer, encInfo *EncryptionInfo) error {
+func SendTCPData(d []byte, p Peer, encInfo *EncryptionInfo) (uint64, error) {
 	info := encInfo.RetrievalInfo
 	conn, e := getTCPConn(p)
 	if e != nil {
-		return e
+		return 0, e
 	}
 	suite := info.Suite
 	fmt.Fprintf(conn, info.Suite.String() + "\n")
@@ -173,21 +181,21 @@ func SendTCPData(d []byte, p Peer, encInfo *EncryptionInfo) error {
 	pk, e := verifyPublicKey([]byte(reply), encInfo, suite)
 	if e != nil {
 		fmt.Println("Could not verify the signature")
-		return e
+		return 0, e
 	}
 	marshalledKey, e := pk.MarshalBinary()
 	if e != nil {
 		fmt.Println("Could not marshalled to binary")
-		return e
+		return 0, e
 	}
 	recipient, e := purb.NewRecipient(marshalledKey, suite)
 	if e != nil {
-		return e
+		return 0, e
 	}
 	recipients := []purbs.Recipient{recipient}
 	signedBlob, e := signAndPURB(encInfo, recipients, suite, d)
 	if e != nil {
-		return e
+		return 0, e
 	}
 	blob := hex.EncodeToString(signedBlob) + "\n"
 	fmt.Fprintf(conn, blob)
@@ -195,9 +203,29 @@ func SendTCPData(d []byte, p Peer, encInfo *EncryptionInfo) error {
 	message = message[:len(message) - 1]
 	if e != nil {
 		fmt.Println("Error: ", e.Error())
-		return e
+		return 0, e
+	}
+	index, e := extractIndexFromMessage(message)
+	if e != nil {
+		return 0, e
 	}
 	e = conn.Close()
-	return e
+	return index, e
+}
+
+func getIndexes(s string) (int64, int64, error) {
+	fields := strings.Split(s, ";")
+	if len (fields) != 3 {
+		return -1,-1, new(ErrorFailedProtocol)
+	}
+	start, e := strconv.Atoi(fields[1])
+	if e != nil {
+		return -1, -1, e
+	}
+	size, e := strconv.Atoi(fields[2])
+	if e != nil {
+		return -1, -1, e
+	}
+	return int64(start), int64(size), nil
 }
 

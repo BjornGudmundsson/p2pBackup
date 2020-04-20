@@ -23,29 +23,30 @@ echo $dummyContent >> $dir/t3.txt;
 touch log1.txt log2.txt backupfile1.txt backupfile2.txt set.txt;
 echo $publicAuthKey1 >> set.txt;
 echo $publicAuthKey2 >> set.txt;
-
 touch peers1.txt peers2.txt;
-
-#Setting up different peer files
+#echo "Bjorn er cool" >> backupfile2.txt;
+#echo "Bjorn er cool" >> backupfile1.txt;
 echo "127.0.0.1 8081 " >> peers1.txt;
 echo "127.0.0.1 8082 " >> peers2.txt;
 
 make build;
 #By default the name of the binary is a
 
-#Running the first peers
+#Running the first peer
 ./a -peers=peers1.txt -udp=3000 -fileport=8081 -logfile=log1.txt -base=$dir -storage=backupfile1.txt -key="$key1"  $setFlag -authkey="$authKey1" &
 p1=$!;
 
+#Running the second peer
 ./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" &
 p2=$!;
 
 sleep 5s
 b1="$(cat backupfile1.txt)";
 b2="$(cat backupfile2.txt)";
-echo "$b1";
-echo "$b2";
+#echo "$b1";
+#echo "$b2";
 
+#Make sure that both strings are non-empty and equal
 if [ -n "$b1" -a -n "$b2" -a "$b1" = "$b2" ]
 then
     echo  -e "${GREEN}Passed${NC}"

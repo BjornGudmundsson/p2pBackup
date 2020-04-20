@@ -124,10 +124,15 @@ func main() {
 			fmt.Println("Could not get the peer list")
 			return
 		}
+		logHandler, e := files.NewEncryptedLogWriter(*backupLogs, authKey.String())
+		if e != nil {
+			fmt.Println("Can't create the log")
+			return
+		}
 		backupHandler := files.NewBackupBuffer("./"+*storageFile)
 		auth, e := crypto.NewAnonAuthenticator(s, *setString)
 		encInfo := peers.NewEncryptionInfo(auth, authKey, nil, info, "", nil)
-		go peers.Update(timer, *baseDir, backupRules, container, *backupLogs, encInfo)
+		go peers.Update(timer, *baseDir, backupRules, container, *backupLogs, encInfo, logHandler)
 		go peers.ListenUDP(":" + *udpPort)
 		peers.ListenTCP(":"+strconv.Itoa(*filePort), encInfo, backupHandler)
 	}

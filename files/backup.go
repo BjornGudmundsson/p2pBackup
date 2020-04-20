@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -82,7 +81,7 @@ type LogWriter interface {
 	Log(l Log) error
 	GetLogs() ([]Log, error)
 	GetLatestLog() (Log, error)
-	NewLog(d []byte, loc Locations) Log
+	NewLog(d []byte, loc Locations, key []byte) Log
 }
 
 type LogHandler struct {
@@ -95,7 +94,8 @@ func (lh *LogHandler) CheckIfBackedUp(d []byte) (bool, error) {
 	digest := sha256.Sum256(d)
 	hxDigest := hex.EncodeToString(digest[:])
 	logs, e := lh.GetLogs()
-	if e != nil {
+	noLogs := new(ErrorNoLogs)
+	if e != nil && !compareErrors(e, noLogs) {
 		return false, e
 	}
 	for _, log := range logs {
@@ -124,11 +124,9 @@ func (lh *LogHandler) GetLogs() ([]Log, error) {
 	}
 	dec := cipher.NewCBCDecrypter(block, iv)
 	pt := make([]byte, len(ct))
-	fmt.Println("CT: ", int(ct[len(ct) - 1]))
 	dec.CryptBlocks(pt, ct)
 	logs := NewEmptyLogEntry().FindLogs(pt)
 	if len(logs) == 0 {
-		fmt.Println("Bjo")
 		return nil, new(ErrorNoLogs)
 	}
 	return logs, nil
@@ -146,13 +144,15 @@ func (lh *LogHandler) GetLatestLog() (Log, error) {
 	return logs[l - 1], nil
 }
 
-func (lh *LogHandler) NewLog(d []byte, loc Locations) Log {
+func (lh *LogHandler) NewLog(d []byte, loc Locations, key []byte) Log {
 	digest := sha256.Sum256(d)
+	digestKey := sha256.Sum256(key)
 	log := LogEntry{
 		indexes:loc,
 		hash: hex.EncodeToString(digest[:]),
 		sizeCT:uint64(len(d)),
 		date:time.Now(),
+		key: hex.EncodeToString(digestKey[:]),
 	}
 	return log
 }

@@ -1,42 +1,19 @@
 package peers
 
 import (
-	"bufio"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/BjornGudmundsson/p2pBackup/files"
 )
 
-//Here are the functions and objects that get the data that is supposed to be collected
-//and send it if meant to
-
-func checkIfHasBeenBackedUp(data []byte, log string) bool {
-	f, e := os.Open(log)
-	if e != nil {
-		return false
-	}
-	h := sha256.Sum256(data)
-	hx := hex.EncodeToString(h[:])
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		contains := strings.Contains(scanner.Text(), hx)
-		if contains {
-			return true
-		}
-	}
-	return false
-}
-
 //Update is meant to be run as a seperate thread that periodically checks for data
 //to send and backup to its peers. The wait parameter defines the amount of time to wait between
 //searching for new backups and the basedir says where to find the files to backup. rules is
 //used to assist in automatic filter of non-backupable files.
-func Update(wait time.Duration, basedir string, rules files.BackupData, peerContainer Container, backupLog string, encInfo *EncryptionInfo) {
+func Update(wait time.Duration, basedir string, rules files.BackupData, peerContainer Container, backupLog string, encInfo *EncryptionInfo, handler files.LogWriter) {
 	for {
 		time.Sleep(wait)
 		peers := peerContainer.GetPeerList()
@@ -50,21 +27,38 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerCont
 				fmt.Println(e)
 			} else {
 				if e != nil {
-					fmt.Println(e)
 					panic(e)
 				}
-				hasBeenBackedUp := checkIfHasBeenBackedUp(data, backupLog)
-				if !hasBeenBackedUp && len(data) != 0 {
+				indexes := make([]uint64, 0)
+				hasBeenBackedUp, e := handler.CheckIfBackedUp(data)
+				if !hasBeenBackedUp && len(data) != 0 && e == nil {
+					ct, e := encInfo.PURBBackup(data)
+					if e != nil {
+						fmt.Println("Could not purbify", e)
+						continue
+					}
 					for _, peer := range peers {
-						e = SendTCPData(data, peer, encInfo)
+						index, e := SendTCPData(data, peer, encInfo)
 						if e != nil {
 							fmt.Println("Could not send data over tcp")
 							fmt.Println(e.Error())
+						} else {
+							indexes = append(indexes, index)
 						}
 					}
-					files.AddBackup(data, backupLog)
+					log := handler.NewLog(data, indexes, ct)
+					e = handler.Log(log)
 				}
 			}
 		}
 	}
+}
+
+func extractIndexFromMessage(msg string) (uint64, error) {
+	fields := strings.Split(msg, " ")
+	if len(fields) != 2 {
+		return 0, new(ErrorIncorrectFormat)
+	}
+	ind, e := strconv.Atoi(fields[1])
+	return uint64(ind), e
 }

@@ -7,7 +7,10 @@ import (
 	"github.com/BjornGudmundsson/p2pBackup/files"
 	"net"
 	"strconv"
+	"time"
 )
+const DOWNLOAD = "Download"
+const wait = time.Second
 
 func getDownloadHandler(bh files.BackupHandler, start, size int64) tcpHandler {
 	f := tcpHandler(func(c net.Conn) error {
@@ -15,7 +18,15 @@ func getDownloadHandler(bh files.BackupHandler, start, size int64) tcpHandler {
 		if e != nil {
 			return e
 		}
-		_, e = fmt.Fprintf(c, hex.EncodeToString(data))
+		verified, e := verifyDownload(c, data)
+		if e != nil  {
+			return e
+		}
+		if !verified {
+			return new(ErrorUnableToVerify)
+		}
+		encryptedData := encryptData(data)
+		_, e = fmt.Fprintf(c, hex.EncodeToString(encryptedData))
 		if e != nil {
 			return e
 		}
@@ -24,45 +35,55 @@ func getDownloadHandler(bh files.BackupHandler, start, size int64) tcpHandler {
 	return f
 }
 
-func RetrieveBackup(p *TCPPeer,info BackupInfo, encryptionInfo *EncryptionInfo) ([]byte, error) {
-	start, size := info.StartIndex, info.Size
-	msg := strconv.FormatInt(start, 10) + ";" + strconv.FormatInt(size, 10)
-	c, e := getTCPConn(p)
-	if e != nil {
-		return nil, e
+func RetrieveBackup(log files.Log, container Container) ([]byte, error) {
+	indexes := []uint64(log.Retrieve())
+	size := log.Size()
+	for i := 0; i < 5;i++ {
+		time.Sleep(wait)//Sleep since it can take some time to get an up to date peer list
+		peers := container.GetPeerList()
+		for _, index := range indexes {
+			//Iterate over all possible indexes since each peer may have a different
+			msg := DOWNLOAD + delim + strconv.FormatUint(index, 10) + delim + strconv.FormatUint(size, 10)
+			for _, peer := range peers {
+				c, e := getTCPConn(peer)
+				if e != nil {
+					continue
+				}
+				reader := bufio.NewReader(c)
+				fmt.Fprintf(c, msg)
+				hasBackup, e := performDownloadChallenge(c, log)
+				if e != nil  || !hasBackup{
+					continue
+				}
+				ct, e := reader.ReadString('\n')
+				if e != nil {
+					continue
+				}
+				pt, e := decryptAndVerifyData([]byte(ct), log)
+				if e != nil {
+					continue
+				}
+				return pt, nil
+			}
+		}
 	}
-	_, e = fmt.Fprintf(c, msg)
-	success, e := performDownloadChallenge(c, info, encryptionInfo)
-	if e != nil {
-		return nil, e
-	}
-	if !success {
-		return nil, new(ErrorUnableToProveStorage)
-	}
-	ct, e := getBackup(c, info, encryptionInfo)
-	if e != nil {
-		return nil, e
-	}
-	blob, e := decryptDownload(ct, info)
-	return encryptionInfo.DecodePURBBackup(blob)
+	return nil, new(ErrorCouldNotRetrieveBackup)
 }
 
-func performDownloadChallenge(c net.Conn, info BackupInfo, encryptionInfo *EncryptionInfo) (bool, error) {
+func verifyDownload(c net.Conn, d []byte) (bool, error) {
+	return true, nil//TODO: Actually perform the ZKP challenge thingy.
+}
+
+func performDownloadChallenge(c net.Conn, log files.Log) (bool, error) {
 	return true, nil
 }
 
-func decryptDownload(d []byte, info BackupInfo) ([]byte, error) {
-	//TODO: Make it actually decrypt the data once the encryption has been made
-	return d, nil
+func encryptData(d []byte) []byte {
+	return d//Todo: Encrypt the data using
 }
 
-func getBackup(c net.Conn, info BackupInfo, encryptionInfo *EncryptionInfo) ([]byte, error) {
-	reader := bufio.NewReader(c)
-	s, e := reader.ReadString('\n')
-	if e != nil {
-		return nil, e
-	}
-	return []byte(s), nil
+func decryptAndVerifyData(d []byte, log files.Log) ([]byte, error) {
+	return d, nil//TODO: Decrypt data with the info from the log and
 }
 
 
