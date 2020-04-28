@@ -15,6 +15,7 @@ publicAuthKey1="b9a616d0453af330d462a8afba820f4f22c77bac2d09aa60c17913ad9416c946
 authKey2="7029b076b7528d0fd076f9e7a31f1a0e7b5e83012b0fea2891dcf55f1c0b19f5"
 publicAuthKey2="6eea06f2136b9c5bdebfcb9980b5a56fbdf315dc03304a78bc6451436b208a82"
 setFlag="-set=set.txt"
+retrieveDir="retrieveDir"
 $createDir
 $createFiles
 #Populating the files such that they can be meaningfully backed up
@@ -44,8 +45,8 @@ p2=$!;
 
 sleep 5s
 
-./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" -retrieve=true
-p3=$!;
+#Retrieving the backup from peer1
+./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$retrieveDir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" -retrieve=true
 
 
 rm set.txt
@@ -59,4 +60,9 @@ fuser -k 8082/tcp;
 fuser -k 3000/udp;
 fuser -k 3001/udp;
 #make clean
+
+d="$retrieveDir$dir";
+python3 test_scripts/compare_dirs.py $dir $d;
+echo "$d"
+rm -rf $d;
 $cleanup;

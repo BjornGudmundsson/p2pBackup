@@ -125,7 +125,6 @@ func main() {
 		pages.ServeScripts()
 		http.HandleFunc("/", pages.IndexPage)
 		http.HandleFunc("/backup", pages.BackupFile)
-		fmt.Println("Running server on port: ", *port)
 		go http.ListenAndServe(":"+(*port), nil)
 	}
 	if *initialize {
@@ -135,6 +134,7 @@ func main() {
 		if e != nil {
 			fmt.Println(e)
 		} else {
+			fmt.Println("Reconstructing backup: ", *baseDir)
 			files.ReconstructBackup(backup, *baseDir)
 		}
 	} else {

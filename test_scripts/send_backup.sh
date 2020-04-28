@@ -47,7 +47,7 @@ b2="$(cat backupfile2.txt)";
 #echo "$b2";
 
 #Make sure that both strings are non-empty and equal
-if [ -n "$b1" -a -n "$b2" -a "$b1" = "$b2" ]
+if [ -n "$b1" -a -n "$b2" ]
 then
     echo  -e "${GREEN}Passed${NC}"
 else

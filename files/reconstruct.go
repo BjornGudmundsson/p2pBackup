@@ -2,7 +2,6 @@ package files
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -62,7 +61,6 @@ func ReconstructFile(f File, content []byte, dir string) error {
 	if path != "" {
 		reconstructedDir = dir + strings.Replace(path, ".", "", 1)
 	} else {
-		fmt.Println("Empty")
 		reconstructedDir = dir
 	}
 	e := os.MkdirAll(reconstructedDir, os.ModePerm)
