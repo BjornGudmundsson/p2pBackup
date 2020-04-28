@@ -16,5 +16,6 @@ rmFiles = rm -rf $(tDir);
 writeTest = touch writeFile.txt; touch appendFile.txt; touch logFile.txt;
 endWriteTest = rm writeFile.txt appendFile.txt logFile.txt;
 read = cat appendFile.txt;
+removeReconstruction = rm -rf reconstructed
 test: 
-	$(dir) $(mockFiles) $(test2) $(writeTest) $(append) $(gTest) $(rmFiles) $(clearTest2) $(endWriteTest)
+	$(dir) $(mockFiles) $(test2) $(writeTest) $(append) $(gTest) $(rmFiles) $(clearTest2) $(endWriteTest) $(removeReconstruction)
