@@ -150,7 +150,7 @@ func (lh *LogHandler) NewLog(d []byte, loc Locations, key []byte) Log {
 	log := LogEntry{
 		indexes:loc,
 		hash: hex.EncodeToString(digest[:]),
-		sizeCT:uint64(len(d)),
+		sizeCT:uint64(len(key)),
 		date:time.Now(),
 		key: hex.EncodeToString(digestKey[:]),
 	}

@@ -45,23 +45,23 @@ func TraverseDirForFiles(dir string) ([]File, error) {
 		return nil, e
 	}
 	ret := make([]File, 0)
-	filestack := utilities.NewStack()
+	fileStack := utilities.NewStack()
 	for _, f := range files {
 		if f.Type == DIR {
-			filestack.Push(f)
+			fileStack.Push(f)
 		} else {
 			ret = append(ret, f)
 		}
 	}
-	for !filestack.IsEmpty() {
-		f := filestack.Pop().(File)
+	for !fileStack.IsEmpty() {
+		f := fileStack.Pop().(File)
 		d, err := GetFilesFromDir(f.Path + "/" + f.Name)
 		if err != nil {
 			return nil, err
 		}
 		for _, f2 := range d {
 			if f2.Type == DIR {
-				filestack.Push(f2)
+				fileStack.Push(f2)
 			} else {
 				ret = append(ret, f2)
 			}

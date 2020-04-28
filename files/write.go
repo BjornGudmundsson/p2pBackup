@@ -32,9 +32,9 @@ func AppendToFile(f File, data []byte) error {
 func ToBytes(files []File) ([]byte, error) {
 	data := make([]byte, 0)
 	for _, f := range files {
-		name := "Name: " + f.Name + "\n"
-		path := "Path: " + f.Path + "\n"
-		size := "Size: " + strconv.Itoa(int(f.Size)) + "\n"
+		name := "Name:" + f.Name + " "
+		path := "Path:" + f.Path + " "
+		size := "Size:" + strconv.Itoa(int(f.Size)) + " "
 		sum := name + path + size + "\n"
 		d, e := ioutil.ReadFile(f.Path + "/" + f.Name)
 		if e != nil {
@@ -42,9 +42,7 @@ func ToBytes(files []File) ([]byte, error) {
 		}
 		data = append(data, []byte(sum)...)
 		data = append(data, d...)
-
 	}
-	data = append(data, byte(';'))
 	return data, nil
 }
 

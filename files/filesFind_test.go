@@ -1,7 +1,6 @@
 package files
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,7 +64,6 @@ func TestTraversingDir(t *testing.T) {
 		e = AppendToFile(f, []byte("deadbeef lmao\n"))
 		assert.Nil(t, e)
 	}
-	fileData, edata := ToBytes(files)
+	_, edata := ToBytes(files)
 	assert.Nil(t, edata)
-	fmt.Println(string(fileData))
 }

@@ -38,7 +38,7 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerCont
 						continue
 					}
 					for _, peer := range peers {
-						index, e := SendTCPData(data, peer, encInfo)
+						index, e := SendTCPData(ct, peer, encInfo)
 						if e != nil {
 							fmt.Println("Could not send data over tcp")
 							fmt.Println(e.Error())
@@ -47,6 +47,7 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerCont
 						}
 					}
 					log := handler.NewLog(data, indexes, ct)
+					fmt.Println(log)
 					e = handler.Log(log)
 				}
 			}

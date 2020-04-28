@@ -82,7 +82,45 @@ func main() {
 	suite := flag.String("suite", curve25519.NewBlakeSHA256Curve25519(true).String(), "What ciphersuite the user decides to use")
 	suiteFile := flag.String("Suites", "", "Where all the known suites are stored in a TOML file")
 	setString := flag.String("set", "", "The file containing the public keys of the anonymity set")
+	retrieve := flag.Bool("retrieve", false, "Retrieving or storing back ups")
+	retrievalPassword := flag.String("pw", "deadbeef", "Password used for encrypting/decrypting backups")
 	flag.Parse()
+	if *retrievalPassword == "" {
+		fmt.Println("Bjo")
+	}
+	s, e := purb.GetSuite(*suite)
+	if e != nil {
+		fmt.Println(e)
+		return
+	}
+	authKey, e := hexToKey(*authString, s)
+	if e != nil {
+		fmt.Println("Not a valid authentication key: ", e)
+		return
+	}
+	container, e := peers.NewContainerFromFile(*peersList)
+	if e != nil {
+		fmt.Println("Could not get the peer list")
+		return
+	}
+	logHandler, e := files.NewEncryptedLogWriter(*backupLogs, authKey.String())
+	if e != nil {
+		fmt.Println("Can't create the log")
+		return
+	}
+	sk, e := hex.DecodeString(*key)
+	if e != nil {
+		fmt.Println("Your secret key was not valid, here's a new one: Pretend there is a secret key")
+		return
+	}
+
+	info, e := purb.NewKeyInfo(sk, s, *suiteFile)
+	if e != nil {
+		fmt.Println("Error: " , e.Error())
+	}
+	backupHandler := files.NewBackupBuffer("./"+*storageFile)
+	auth, e := crypto.NewAnonAuthenticator(s, *setString)
+	encInfo := peers.NewEncryptionInfo(auth, authKey, nil, info, "", nil)
 	if *gui {
 		pages.ServeScripts()
 		http.HandleFunc("/", pages.IndexPage)
@@ -92,6 +130,13 @@ func main() {
 	}
 	if *initialize {
 		keyPairs(*suite)
+	} else if *retrieve {
+		backup, e := peers.RetrieveFromLogs(logHandler, encInfo, container)
+		if e != nil {
+			fmt.Println(e)
+		} else {
+			files.ReconstructBackup(backup, *baseDir)
+		}
 	} else {
 		PrintInfo(baseDir, peersList, udpPort, rules, storageFile, backupLogs, filePort, false)
 		timer, e := time.ParseDuration(*updateTimer)
@@ -99,39 +144,6 @@ func main() {
 			panic(e)
 		}
 		backupRules := files.CreateRules(*rules)
-
-		sk, e := hex.DecodeString(*key)
-		if e != nil {
-			fmt.Println("Your secret key was not valid, here's a new one: Pretend there is a secret key")
-			return
-		}
-		s, e := purb.GetSuite(*suite)
-		if e != nil {
-			fmt.Println(e)
-			return
-		}
-		info, e := purb.NewKeyInfo(sk, s, *suiteFile)
-		if e != nil {
-			fmt.Println("Error: " , e.Error())
-		}
-		authKey, e := hexToKey(*authString, s)
-		if e != nil {
-			fmt.Println("Not a valid authentication key: ", e)
-			return
-		}
-		container, e := peers.NewContainerFromFile(*peersList)
-		if e != nil {
-			fmt.Println("Could not get the peer list")
-			return
-		}
-		logHandler, e := files.NewEncryptedLogWriter(*backupLogs, authKey.String())
-		if e != nil {
-			fmt.Println("Can't create the log")
-			return
-		}
-		backupHandler := files.NewBackupBuffer("./"+*storageFile)
-		auth, e := crypto.NewAnonAuthenticator(s, *setString)
-		encInfo := peers.NewEncryptionInfo(auth, authKey, nil, info, "", nil)
 		go peers.Update(timer, *baseDir, backupRules, container, *backupLogs, encInfo, logHandler)
 		go peers.ListenUDP(":" + *udpPort)
 		peers.ListenTCP(":"+strconv.Itoa(*filePort), encInfo, backupHandler)

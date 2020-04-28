@@ -3,6 +3,7 @@ package peers
 import (
 	"bufio"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/files"
 	"net"
@@ -26,7 +27,7 @@ func getDownloadHandler(bh files.BackupHandler, start, size int64) tcpHandler {
 			return new(ErrorUnableToVerify)
 		}
 		encryptedData := encryptData(data)
-		_, e = fmt.Fprintf(c, hex.EncodeToString(encryptedData))
+		_, e = fmt.Fprintf(c, hex.EncodeToString(encryptedData) + "\n")
 		if e != nil {
 			return e
 		}
@@ -35,15 +36,25 @@ func getDownloadHandler(bh files.BackupHandler, start, size int64) tcpHandler {
 	return f
 }
 
-func RetrieveBackup(log files.Log, container Container) ([]byte, error) {
+func RetrieveFromLogs(logs files.LogWriter, enc *EncryptionInfo, container Container) ([]byte, error) {
+	log, e := logs.GetLatestLog()
+	fmt.Println(log)
+	if e != nil {
+		return nil, e
+	}
+	return RetrieveBackup(log, container, enc)
+}
+
+func RetrieveBackup(log files.Log, container Container, enc *EncryptionInfo) ([]byte, error) {
 	indexes := []uint64(log.Retrieve())
 	size := log.Size()
 	for i := 0; i < 5;i++ {
+		fmt.Println("Trying to retrieve from all peers")
 		time.Sleep(wait)//Sleep since it can take some time to get an up to date peer list
 		peers := container.GetPeerList()
 		for _, index := range indexes {
 			//Iterate over all possible indexes since each peer may have a different
-			msg := DOWNLOAD + delim + strconv.FormatUint(index, 10) + delim + strconv.FormatUint(size, 10)
+			msg := DOWNLOAD + delim + strconv.FormatUint(index, 10) + delim + strconv.FormatUint(size, 10) + "\n"
 			for _, peer := range peers {
 				c, e := getTCPConn(peer)
 				if e != nil {
@@ -59,7 +70,12 @@ func RetrieveBackup(log files.Log, container Container) ([]byte, error) {
 				if e != nil {
 					continue
 				}
-				pt, e := decryptAndVerifyData([]byte(ct), log)
+				blob, e := decryptAndVerifyData([]byte(ct), log)
+				if e != nil {
+					fmt.Println(e)
+					continue
+				}
+				pt, e := enc.DecodePURBBackup(blob)
 				if e != nil {
 					continue
 				}
@@ -83,7 +99,12 @@ func encryptData(d []byte) []byte {
 }
 
 func decryptAndVerifyData(d []byte, log files.Log) ([]byte, error) {
-	return d, nil//TODO: Decrypt data with the info from the log and
+	l := len(d)
+	if l <= 1 {
+		return nil, errors.New("Empty string")
+	}
+	ct := d[:l - 1]
+	return hex.DecodeString(string(ct))
 }
 
 

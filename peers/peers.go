@@ -1,6 +1,7 @@
 package peers
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -51,7 +52,9 @@ func NewContainerFromFile(fn string) (Container, error) {
 		peerFile: fn,
 	}
 	peerList, e := GetPeerList(fn)
+	fmt.Println("Bjorn", fn)
 	if e != nil {
+		fmt.Println(e)
 		return nil, e
 	}
 	for _, p := range peerList {

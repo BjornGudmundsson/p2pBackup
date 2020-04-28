@@ -79,6 +79,9 @@ func handleFailure(c net.Conn, e error, m purbs.SuiteInfoMap) {
 }
 
 func isDownload(msg string) (bool, error) {
+	if strings.Contains(msg, DOWNLOAD) {
+		return true, nil
+	}
 	return false, nil//TODO: /make it such that returns true if download, false else and an error if it means nothing
 }
 
@@ -108,6 +111,9 @@ func getUploadHandler(suite purbs.Suite,encInfo *EncryptionInfo, backupHandler f
 			return e
 		}
 		data, e := verifyPURB(freshPair.Private, suite, blob, encInfo)
+		if e != nil {
+			return e
+		}
 		ind := backupHandler.AddBackup(data)
 		if ind == -1 {
 			return new(ErrorCouldNotAppend)
