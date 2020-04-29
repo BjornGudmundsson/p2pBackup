@@ -1,5 +1,0 @@
-MaxSize = 500
-MinSize = 0
-TypesToExclude = "([a-z]*).csv"
-BlackListedFiles = ["Makefile"]
-MinTimeSinceModified = "2s" 
