@@ -1,8 +1,9 @@
 package peers
 
 import (
-	"bufio"
+	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/kyber"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/random"
 	"github.com/BjornGudmundsson/p2pBackup/purb"
@@ -13,6 +14,7 @@ import (
 )
 
 const delim = ";"
+const seperator = " "
 
 const errorIndicator = "Error: "
 
@@ -24,27 +26,27 @@ func signPublicKey(k []byte, signer *EncryptionInfo) ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
-	hexSig := hex.EncodeToString(sig)
-	hexKey := hex.EncodeToString(k)
-	return []byte(hexSig + delim + hexKey), nil
+	hexSig := signer.Enc.EncodeToString(sig)
+	hexKey := signer.Enc.EncodeToString(k)
+	return []byte(hexSig + seperator + hexKey), nil
 }
 
 //verifyPublicKey takes in a public key and a signature and validates them and returns a new EC-point
 //for the corresponding key from the alleged suite.
 func verifyPublicKey(d []byte, verifier *EncryptionInfo, suite purbs.Suite) (kyber.Point, error) {
-	b, e := hex.DecodeString(string(d))
+	b, e := verifier.Enc.DecodeFromString(string(d))
 	if e != nil {
 		return nil, e
 	}
-	sigKey := strings.Split(string(b), delim)
+	sigKey := strings.Split(string(b), seperator)
 	if len(sigKey) != 2 {
 		return nil, new(ErrorIncorrectFormat)
 	}
-	sig, e := hex.DecodeString(sigKey[0])
+	sig, e := verifier.Enc.DecodeFromString(sigKey[0])
 	if e != nil {
 		return nil, e
 	}
-	key, e := hex.DecodeString(sigKey[1])
+	key, e := verifier.Enc.DecodeFromString(sigKey[1])
 	if e != nil {
 		return nil, e
 	}
@@ -78,16 +80,17 @@ func verifyPURB(x kyber.Scalar, suite purbs.Suite, blob []byte, verifier *Encryp
 		return nil, new(ErrorCouldNotDecode)
 	}
 	s := string(d)
-	spl := strings.Split(s, delim)
+	spl := strings.Split(s, seperator)
 	if len(spl) < 2 {
 		return nil, new(ErrorIncorrectFormat)
 	}
-	sig, e := hex.DecodeString(spl[0])
+	sig := spl[0]
+	sigDecoded, e := verifier.Enc.DecodeFromString(sig)
 	if e != nil {
 		return nil, e
 	}
-	data := []byte(strings.Join(spl[1:], delim))
-	_, e = verifier.Verify(data, sig)
+	data := []byte(strings.Join(spl[1:], seperator))
+	_, e = verifier.Verify(data, sigDecoded)
 	return data, e
 }
 
@@ -97,8 +100,8 @@ func signAndPURB(signer *EncryptionInfo, recipients []purbs.Recipient, suite pur
 	if e != nil {
 		return nil,  e
 	}
-	hexSign := hex.EncodeToString(sig)
-	signedBlob := []byte(hexSign + ";" + string(data))
+	fmt.Println("Len sig: ", len(sig))
+	signedBlob := []byte(signer.Enc.EncodeToString(sig) + seperator + string(data))
 	params := purbs.NewPublicFixedParameters(signer.RetrievalInfo.SuiteInfos, false)
 	p, e := purbs.Encode(signedBlob, recipients, random.New(), params, false)
 	if e != nil {
@@ -113,22 +116,35 @@ func getTCPConn(p Peer) (net.Conn, error) {
 	return c, e
 }
 
-func readNBytesFromConnection(c net.Conn, n int) ([]byte, error) {
-	reader := bufio.NewReader(c)
-	buffer := make([]byte, n)
-	_, e := reader.Read(buffer)
-	if e != nil {
-		return nil, e
-	}
-	return buffer, nil
+type Encoder interface {
+	EncodeToString(d []byte) string
+	DecodeFromString(s string) ([]byte, error)
 }
 
-func checkIfFailed(d []byte) error {
-	s := string(d)
-	isError := strings.Contains(s, errorIndicator)
-	if isError {
-		return new(ErrorFailedProtocol)
-	}
-	return nil
+type hexEncoder struct{}
+
+func (he hexEncoder) EncodeToString(d []byte) string {
+	return hex.EncodeToString(d)
 }
 
+func (he hexEncoder) DecodeFromString(s string) ([]byte, error) {
+	return hex.DecodeString(s)
+}
+
+type base64Encoder struct {}
+
+func (b64 base64Encoder) EncodeToString(d []byte) string {
+	return base64.StdEncoding.EncodeToString(d)
+}
+
+func (b64 base64Encoder) DecodeFromString(s string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(s)
+}
+
+func NewHexEncoder() Encoder {
+	return hexEncoder{}
+}
+
+func NewB64Encoder() Encoder {
+	return base64Encoder{}
+}

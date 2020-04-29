@@ -1,7 +1,6 @@
 package files
 
 import (
-	"errors"
 	"time"
 )
 
@@ -12,17 +11,6 @@ func GetTimePassedSinceModified(f File) time.Duration {
 	now := time.Now()
 	diff := now.Sub(f.Modified)
 	return diff
-}
-
-//HasPassedTimeLimit takes in a file and a duration and
-//returns nil if the time limit has been exceeded or an
-//error if not.
-func HasPassedTimeLimit(f File, t time.Duration) error {
-	elapsed := GetTimePassedSinceModified(f)
-	if t-elapsed <= time.Duration(0) {
-		return nil
-	}
-	return errors.New("Not enough time has elapsed")
 }
 
 //FindAllFilesToBackup takes in a set of rules and a base directory and

@@ -48,7 +48,6 @@ sleep 5s
 #Retrieving the backup from peer1
 ./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$retrieveDir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" -retrieve=true
 
-
 rm set.txt
 #Cleaning up after the test
 cleanup="rm -rf testDir";
@@ -60,7 +59,7 @@ fuser -k 8082/tcp;
 fuser -k 3000/udp;
 fuser -k 3001/udp;
 #make clean
-
+sleep 3s;
 d="$retrieveDir$dir";
 python3 test_scripts/compare_dirs.py $dir $d;
 echo "$d"

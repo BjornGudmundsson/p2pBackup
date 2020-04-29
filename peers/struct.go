@@ -117,6 +117,7 @@ func GetPeerList(peerFile string) ([]*TCPPeer, error) {
 //cryptographic information needed to take part
 //in the protocol.
 type EncryptionInfo struct {
+	Enc Encoder
 	Auth crypto.Authenticator
 	AuthKey kyber.Scalar
 	Link []byte
@@ -127,6 +128,7 @@ type EncryptionInfo struct {
 
 func NewEncryptionInfo(auth crypto.Authenticator, authKey kyber.Scalar, link []byte, info *purb.KeyInfo, pw string, recipients []kyber.Point) *EncryptionInfo {
 	return &EncryptionInfo{
+		Enc: NewB64Encoder(),
 		Auth:          auth,
 		AuthKey:       authKey,
 		Link:          link,

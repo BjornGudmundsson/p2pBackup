@@ -2,6 +2,7 @@ import filecmp
 import os.path
 import sys
 
+#I got this code from this link: https://stackoverflow.com/questions/4187564/recursively-compare-two-directories-to-ensure-they-have-the-same-files-and-subdi
 def are_dir_trees_equal(dir1, dir2):
     """
     Compare two directories recursively. Files in each directory are

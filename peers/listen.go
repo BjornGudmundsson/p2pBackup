@@ -2,7 +2,6 @@ package peers
 
 import (
 	"bufio"
-	"encoding/hex"
 	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/files"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/key"
@@ -96,7 +95,7 @@ func getUploadHandler(suite purbs.Suite,encInfo *EncryptionInfo, backupHandler f
 		if e != nil {
 			return e
 		}
-		_, e = fmt.Fprintf(c, hex.EncodeToString(sig) + "\n")
+		_, e = fmt.Fprintf(c, encInfo.Enc.EncodeToString(sig) + "\n")
 		if e != nil {
 			return e
 		}
@@ -106,12 +105,13 @@ func getUploadHandler(suite purbs.Suite,encInfo *EncryptionInfo, backupHandler f
 			return e
 		}
 		hxPurb = hxPurb[:len(hxPurb) - 1]
-		blob, e := hex.DecodeString(hxPurb)
+		blob, e := encInfo.Enc.DecodeFromString(hxPurb)
 		if e != nil {
 			return e
 		}
 		data, e := verifyPURB(freshPair.Private, suite, blob, encInfo)
 		if e != nil {
+			fmt.Println("Could not be verified")
 			return e
 		}
 		ind := backupHandler.AddBackup(data)
@@ -203,11 +203,13 @@ func SendTCPData(d []byte, p Peer, encInfo *EncryptionInfo) (uint64, error) {
 	if e != nil {
 		return 0, e
 	}
-	blob := hex.EncodeToString(signedBlob) + "\n"
+	blob := encInfo.Enc.EncodeToString(signedBlob) + "\n"
+	fmt.Println("Len blob: ", len(blob))
 	fmt.Fprintf(conn, blob)
 	message, e := bufio.NewReader(conn).ReadString('\n')
 	message = message[:len(message) - 1]
 	if e != nil {
+		fmt.Println("yo")
 		fmt.Println("Error: ", e.Error())
 		return 0, e
 	}
