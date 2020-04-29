@@ -22,3 +22,6 @@ const DefaultExcludedRule = ""
 //amount of time that can pass before a file can
 //be considered for backing up
 const DefaultMaxElapsedTime = time.Second
+
+
+const compress = true

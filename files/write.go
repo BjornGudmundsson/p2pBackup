@@ -1,6 +1,10 @@
 package files
 
 import (
+	"bytes"
+	"compress/gzip"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -43,7 +47,11 @@ func ToBytes(files []File) ([]byte, error) {
 		data = append(data, []byte(sum)...)
 		data = append(data, d...)
 	}
-	return data, nil
+	compressed, e := compressData(data, compress)
+	if e != nil {
+		return nil, e
+	}
+	return compressed, nil
 }
 
 //GetFile takes in a filename and returns
@@ -89,4 +97,49 @@ func GetLastNBytes(fn string, n int64) ([]byte, error) {
 	d := make([]byte, n)
 	_, e  = f.ReadAt(d, offset)
 	return d, e
+}
+
+
+func compressData(d []byte, do bool) ([]byte, error) {
+	if !do {
+		return d, nil
+	}
+	var buf bytes.Buffer
+	wr, e := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if e != nil {
+		return nil, e
+	}
+	wr.Write(d)
+	e = wr.Close()
+	if e != nil {
+		return nil, e
+	}
+	wr.Reset(&buf)
+	return buf.Bytes(), nil
+}
+
+func decompressData(p []byte, do bool) ([]byte, error) {
+	if !do {
+		return p, nil
+	}
+	buf := new(bytes.Buffer)
+	_, e := buf.Write(p)
+	if e != nil {
+		fmt.Println("Can't write")
+		return nil, e
+	}
+	zr, e := gzip.NewReader(buf)
+	if e != nil {
+		return nil, e
+	}
+	rbuf := new(bytes.Buffer)
+	_, e = io.Copy(rbuf, zr)
+	if e != nil {
+		return nil, e
+	}
+	if e != nil {
+		fmt.Println("Bjo")
+		return nil, e
+	}
+	return rbuf.Bytes(), e
 }

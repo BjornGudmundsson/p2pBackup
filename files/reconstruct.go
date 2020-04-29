@@ -14,7 +14,11 @@ type fileDataPair struct {
 	d []byte
 }
 
-func ReconstructBackup(d []byte, dir string) error {
+func ReconstructBackup(p []byte, dir string) error {
+	d, e := decompressData(p, compress)
+	if e != nil {
+		return e
+	}
 	eol := "\n"
 	data := string(d)
 	files := make([]fileDataPair, 0)

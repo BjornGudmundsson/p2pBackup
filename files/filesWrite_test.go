@@ -145,3 +145,14 @@ func TestAppendLog(t *testing.T) {
 	assert.Nil(t, e, "Should contain the second log")
 	assert.True(t, contains, "Should contain the second log")
 }
+
+func TestCompression(t *testing.T) {
+	data := []byte("Bjorn er cool")
+	compressed, e := compressData(data, true)
+	assert.Nil(t, e, "Should be able to compress the buffer")
+	assert.NotEmpty(t, compressed, "compressed data should be non empty")
+	assert.NotEqual(t, string(data), string(compressed), "data should be compressed")
+	pt, e := decompressData(compressed, true)
+	assert.Nil(t, e, "Should be able to decompress the data")
+	assert.Equal(t, string(data), string(pt), "Should be the same after compression")
+}
