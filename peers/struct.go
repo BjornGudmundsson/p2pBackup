@@ -58,7 +58,7 @@ func (p *TCPPeer) String() string {
 }
 
 func (p *TCPPeer) TransmissionProtocol() string {
-	return "tcp"
+	return tcp
 }
 
 

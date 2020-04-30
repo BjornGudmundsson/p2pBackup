@@ -65,3 +65,10 @@ type ErrorCouldNotRetrieveBackup struct {}
 func (e *ErrorCouldNotRetrieveBackup) Error() string {
 	return "Error: Could not find any peer that had the backup"
 }
+
+
+type ErrorEmptyData struct {}
+
+func (e *ErrorEmptyData) Error() string {
+	return "Error: No data was sent"
+}

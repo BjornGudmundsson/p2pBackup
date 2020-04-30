@@ -34,20 +34,21 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerCont
 				if !hasBeenBackedUp && len(data) != 0 && e == nil {
 					ct, e := encInfo.PURBBackup(data)
 					if e != nil {
-						fmt.Println("Could not purbify", e)
 						continue
 					}
 					for _, peer := range peers {
-						index, e := SendTCPData(ct, peer, encInfo)
+						comm, e := NewCommunicatorFromPeer(peer, encInfo)
 						if e != nil {
-							fmt.Println("Could not send data over tcp")
+							continue
+						}
+						index, e := UploadData(ct, comm, encInfo)
+						if e != nil {
 							fmt.Println(e.Error())
 						} else {
 							indexes = append(indexes, index)
 						}
 					}
 					log := handler.NewLog(data, indexes, ct)
-					fmt.Println(log)
 					e = handler.Log(log)
 				}
 			}

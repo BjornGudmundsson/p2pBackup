@@ -1,7 +1,6 @@
 package peers
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/files"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/key"
@@ -14,7 +13,7 @@ import (
 
 
 //Shorthand for a function handle a connection
-type tcpHandler func(net.Conn) error
+type communicationHandler func(Communicator) error
 
 const localhost = "127.0.0.1"
 
@@ -55,8 +54,8 @@ func ListenTCP(port string, encInfo *EncryptionInfo, backupHandler files.BackupH
 		if err != nil {
 			fmt.Println(err)
 		} else {
-
-			go handler(c)
+			comm := NewTCPCommunicatorFromConn(c, encInfo)
+			go handler(comm)
 		}
 	}
 }
@@ -70,10 +69,10 @@ func verifyData(data []byte) bool {
 
 
 
-func handleFailure(c net.Conn, e error, m purbs.SuiteInfoMap) {
+func handleFailure(c Communicator, e error, m purbs.SuiteInfoMap) {
 	if c != nil {
-		fmt.Fprintf(c, e.Error())
-		c.Close()
+		c.SendMessage([]byte(e.Error()))
+		c.CloseChannel()
 	}
 }
 
@@ -84,8 +83,8 @@ func isDownload(msg string) (bool, error) {
 	return false, nil//TODO: /make it such that returns true if download, false else and an error if it means nothing
 }
 
-func getUploadHandler(suite purbs.Suite,encInfo *EncryptionInfo, backupHandler files.BackupHandler) func(c net.Conn) error {
-	f := func(c net.Conn) error {
+func getUploadHandler(suite purbs.Suite,encInfo *EncryptionInfo, backupHandler files.BackupHandler) func(c Communicator) error {
+	f := func(c Communicator) error {
 		freshPair := key.NewKeyPair(suite)
 		publicBytes, e := freshPair.Public.MarshalBinary()
 		if e != nil {
@@ -95,52 +94,40 @@ func getUploadHandler(suite purbs.Suite,encInfo *EncryptionInfo, backupHandler f
 		if e != nil {
 			return e
 		}
-		_, e = fmt.Fprintf(c, encInfo.Enc.EncodeToString(sig) + "\n")
+		e = c.SendMessage(sig)
 		if e != nil {
 			return e
 		}
-		reader := bufio.NewReader(c)
-		hxPurb, e := reader.ReadString('\n')
-		if e != nil {
-			return e
-		}
-		hxPurb = hxPurb[:len(hxPurb) - 1]
-		blob, e := encInfo.Enc.DecodeFromString(hxPurb)
+		blob, e := c.GetNextMessage()
 		if e != nil {
 			return e
 		}
 		data, e := verifyPURB(freshPair.Private, suite, blob, encInfo)
 		if e != nil {
-			fmt.Println("Could not be verified")
 			return e
 		}
 		ind := backupHandler.AddBackup(data)
 		if ind == -1 {
 			return new(ErrorCouldNotAppend)
 		}
-		msg := "Ok " + strconv.FormatInt(ind, 10) + "\n"
-		_, e = fmt.Fprintf(c, msg)
-		if e != nil {
-			return e
-		}
-		return c.Close()
+		msg := "Ok " + strconv.FormatInt(ind, 10)
+		e = c.SendMessage([]byte(msg))
+		return c.CloseChannel()
 	}
 	return f
 }
 
-func firstReply(conn net.Conn,encInfo *EncryptionInfo, backupHandler files.BackupHandler) (tcpHandler, error) {
-	reader := bufio.NewReader(conn)
-	s, e := reader.ReadString('\n')
+func firstReply(c Communicator,encInfo *EncryptionInfo, backupHandler files.BackupHandler) (communicationHandler, error) {
+	s, e := c.GetNextMessage()
 	if e != nil {
 		return nil, e
 	}
-	s = s[:len(s) - 1]
-	download, e := isDownload(s)
+	download, e := isDownload(string(s))
 	if e != nil {
 		return nil, e
 	}
 	if download {
-		start, size, e := getIndexes(s)
+		start, size, e := getIndexes(string(s))
 		if e != nil {
 			return nil, e
 		}
@@ -148,7 +135,7 @@ func firstReply(conn net.Conn,encInfo *EncryptionInfo, backupHandler files.Backu
 		//Handle download
 		return downloadHandler, nil
 	}
-	suite, e := purb.GetSuite(s)
+	suite, e := purb.GetSuite(string(s))
 	if e != nil {
 		return nil, e
 	}
@@ -156,42 +143,41 @@ func firstReply(conn net.Conn,encInfo *EncryptionInfo, backupHandler files.Backu
 	return handler, nil
 }
 
-func createHandler(encInfo *EncryptionInfo, backupHandler files.BackupHandler) func(net.Conn) {
+func createHandler(encInfo *EncryptionInfo, backupHandler files.BackupHandler) func(Communicator) {
 	suiteMap := encInfo.RetrievalInfo.SuiteInfos
-	f := func(c net.Conn) {
+	f := func(c Communicator) {
 		handler, e := firstReply(c, encInfo, backupHandler)
 		if e != nil {
 			handleFailure(c, e, suiteMap)
 		}
 		e = handler(c)
 		if e != nil {
-			fmt.Println("Did not succeed")
 			handleFailure(c, e, suiteMap)
 		}
 	}
 	return f
 }
 
-//SendTCPData takes in a slice of bytes
+//UploadData takes in a slice of bytes
 //and sends it the given peer.
-func SendTCPData(d []byte, p Peer, encInfo *EncryptionInfo) (uint64, error) {
+func UploadData(d []byte, comm Communicator, encInfo *EncryptionInfo) (uint64, error) {
 	info := encInfo.RetrievalInfo
-	conn, e := getTCPConn(p)
+	suite := info.Suite
+	//fmt.Fprintf(conn, info.Suite.String() + "\n")
+	e := comm.SendMessage([]byte(suite.String()))
 	if e != nil {
 		return 0, e
 	}
-	suite := info.Suite
-	fmt.Fprintf(conn, info.Suite.String() + "\n")
-	reply, e := bufio.NewReader(conn).ReadString('\n')
-	reply = reply[:len(reply) - 1]
-	pk, e := verifyPublicKey([]byte(reply), encInfo, suite)
+	reply, e := comm.GetNextMessage()
 	if e != nil {
-		fmt.Println("Could not verify the signature")
+		return 0, e
+	}
+	pk, e := verifyPublicKey(reply, encInfo, suite)
+	if e != nil {
 		return 0, e
 	}
 	marshalledKey, e := pk.MarshalBinary()
 	if e != nil {
-		fmt.Println("Could not marshalled to binary")
 		return 0, e
 	}
 	recipient, e := purb.NewRecipient(marshalledKey, suite)
@@ -199,25 +185,25 @@ func SendTCPData(d []byte, p Peer, encInfo *EncryptionInfo) (uint64, error) {
 		return 0, e
 	}
 	recipients := []purbs.Recipient{recipient}
-	signedBlob, e := signAndPURB(encInfo, recipients, suite, d)
+	blob, e := signAndPURB(encInfo, recipients, suite, d)
 	if e != nil {
 		return 0, e
 	}
-	blob := encInfo.Enc.EncodeToString(signedBlob) + "\n"
-	fmt.Println("Len blob: ", len(blob))
-	fmt.Fprintf(conn, blob)
-	message, e := bufio.NewReader(conn).ReadString('\n')
-	message = message[:len(message) - 1]
-	if e != nil {
-		fmt.Println("yo")
-		fmt.Println("Error: ", e.Error())
-		return 0, e
-	}
-	index, e := extractIndexFromMessage(message)
+	//blob := encInfo.Enc.EncodeToString(signedBlob)
+	e = comm.SendMessage(blob)
 	if e != nil {
 		return 0, e
 	}
-	e = conn.Close()
+	//fmt.Fprintf(conn, blob)
+	message, e := comm.GetNextMessage()
+	if e != nil {
+		return 0, e
+	}
+	index, e := extractIndexFromMessage(string(message))
+	if e != nil {
+		return 0, e
+	}
+	e = comm.CloseChannel()
 	return index, e
 }
 

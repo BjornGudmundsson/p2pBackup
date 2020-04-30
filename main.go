@@ -134,7 +134,6 @@ func main() {
 		if e != nil {
 			fmt.Println(e)
 		} else {
-			fmt.Println("Reconstructing backup: ", *baseDir)
 			files.ReconstructBackup(backup, *baseDir)
 		}
 	} else {

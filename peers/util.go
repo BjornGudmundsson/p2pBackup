@@ -3,7 +3,6 @@ package peers
 import (
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/kyber"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/random"
 	"github.com/BjornGudmundsson/p2pBackup/purb"
@@ -15,6 +14,11 @@ import (
 
 const delim = ";"
 const seperator = " "
+//eof stands for end of feed
+const eof = "\n"
+
+//tcp is the constant to signal they are using tcp
+const tcp = "tcp"
 
 const errorIndicator = "Error: "
 
@@ -34,11 +38,7 @@ func signPublicKey(k []byte, signer *EncryptionInfo) ([]byte, error) {
 //verifyPublicKey takes in a public key and a signature and validates them and returns a new EC-point
 //for the corresponding key from the alleged suite.
 func verifyPublicKey(d []byte, verifier *EncryptionInfo, suite purbs.Suite) (kyber.Point, error) {
-	b, e := verifier.Enc.DecodeFromString(string(d))
-	if e != nil {
-		return nil, e
-	}
-	sigKey := strings.Split(string(b), seperator)
+	sigKey := strings.Split(string(d), seperator)
 	if len(sigKey) != 2 {
 		return nil, new(ErrorIncorrectFormat)
 	}
@@ -100,7 +100,6 @@ func signAndPURB(signer *EncryptionInfo, recipients []purbs.Recipient, suite pur
 	if e != nil {
 		return nil,  e
 	}
-	fmt.Println("Len sig: ", len(sig))
 	signedBlob := []byte(signer.Enc.EncodeToString(sig) + seperator + string(data))
 	params := purbs.NewPublicFixedParameters(signer.RetrievalInfo.SuiteInfos, false)
 	p, e := purbs.Encode(signedBlob, recipients, random.New(), params, false)
