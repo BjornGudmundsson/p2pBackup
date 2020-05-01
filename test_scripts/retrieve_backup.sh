@@ -1,4 +1,4 @@
-
+DEBUG=true;
 RED='\033[0;31m'
 NC='\033[0m'
 GREEN='\033[0;32m'
@@ -26,7 +26,7 @@ ran="shuf -i 1-1000 -n 1";
 n1="$(shuf -i 1-1000 -n 1)";
 n2="$(shuf -i 1-1000 -n 1)";
 n3="$(shuf -i 1-1000 -n 1)";
-echo $n1 $n2 $n3
+#echo $n1 $n2 $n3;
 head -c $n1 </dev/random > $dir/t1.txt;
 head -c $n2 </dev/random > $dir/t2.txt;
 head -c  $n3 </dev/random > $dir/t3.txt;
@@ -40,15 +40,19 @@ echo "Bjorn er cool" >> backupfile1.txt;
 echo "127.0.0.1 8081 " >> peers1.txt;
 echo "127.0.0.1 8082 " >> peers2.txt;
 
-make build;
+if [ "$DEBUG" = true ]; then
+  make build > /dev/null;
+else
+  make build;
+fi
 #By default the name of the binary is a
 
 #Running the first peer
-./a -peers=peers1.txt -udp=3000 -fileport=8081 -logfile=log1.txt -base=$dir -storage=backupfile1.txt -key="$key1"  $setFlag -authkey="$authKey1" &
+./a -peers=peers1.txt -udp=3000 -fileport=8081 -logfile=log1.txt -base=$dir -storage=backupfile1.txt -key="$key1"  $setFlag -authkey="$authKey1" > /dev/null &
 p1=$!;
 
 #Running the second peer
-./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" &
+./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" > /dev/null &
 p2=$!;
 
 sleep 5s
@@ -57,20 +61,20 @@ sleep 5s
 ./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$retrieveDir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" -retrieve=true
 
 
-rm set.txt
+rm set.txt > /dev/null;
 #Cleaning up after the test
 cleanup="rm -rf testDir";
-kill -9 $p1;
-kill -9 $p2;
-rm log1.txt log2.txt peers1.txt peers2.txt backupfile1.txt backupfile2.txt;
-fuser -k 8081/tcp;
-fuser -k 8082/tcp;
-fuser -k 3000/udp;
-fuser -k 3001/udp;
+kill -9 $p1 > /dev/null;
+kill -9 $p2 > /dev/null;
+rm log1.txt log2.txt peers1.txt peers2.txt backupfile1.txt backupfile2.txt > /dev/null;
+fuser -k 8081/tcp > /dev/null;
+fuser -k 8082/tcp > /dev/null;
+fuser -k 3000/udp > /dev/null;
+fuser -k 3001/udp > /dev/null;
 #make clean
-sleep 3s;
+sleep 1s;
 d="$retrieveDir$dir";
 python3 test_scripts/compare_dirs.py $dir $d;
 echo "$d"
-rm -rf $d;
-$cleanup;
+rm -rf $d > /dev/null;
+$cleanup > /dev/null;

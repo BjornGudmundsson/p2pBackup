@@ -1,6 +1,7 @@
 	package crypto
 
 import (
+	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/random"
 	"github.com/BjornGudmundsson/p2pBackup/purb"
 	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
@@ -28,6 +29,7 @@ func TestPasswordToPURB(t *testing.T) {
 	assert.Nil(t, e, "Should be able to generate a suite")
 	assert.NotNil(t, suite, "Suite should be non-nil")
 	sk, e := PrivateKeyFromPassword(pw, suite)
+	fmt.Println("SK: ", sk)
 	assert.Nil(t, e, "Should be able to get private key from scalar")
 	assert.NotNil(t, sk, "Private key should be non-nil")
 	p := suite.Point().Base()

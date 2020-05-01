@@ -85,6 +85,10 @@ func main() {
 	retrieve := flag.Bool("retrieve", false, "Retrieving or storing back ups")
 	retrievalPassword := flag.String("pw", "deadbeef", "Password used for encrypting/decrypting backups")
 	flag.Parse()
+	if *initialize {
+		keyPairs(*suite)
+		return
+	}
 	if *retrievalPassword == "" {
 		fmt.Println("Bjo")
 	}
@@ -127,9 +131,7 @@ func main() {
 		http.HandleFunc("/backup", pages.BackupFile)
 		go http.ListenAndServe(":"+(*port), nil)
 	}
-	if *initialize {
-		keyPairs(*suite)
-	} else if *retrieve {
+	if *retrieve {
 		backup, e := peers.RetrieveFromLogs(logHandler, encInfo, container)
 		if e != nil {
 			fmt.Println(e)
