@@ -2,7 +2,6 @@ DEBUG=true;
 RED='\033[0;31m'
 NC='\033[0m'
 GREEN='\033[0;32m'
-echo "Retrieve backup test";
 #Making the test directories
 dummyContent="deadbeef lmao abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567898EmNvHAHEYHlWV"
 dir="testDir"
@@ -48,11 +47,11 @@ fi
 #By default the name of the binary is a
 
 #Running the first peer
-./a -peers=peers1.txt -udp=3000 -fileport=8081 -logfile=log1.txt -base=$dir -storage=backupfile1.txt -key="$key1"  $setFlag -authkey="$authKey1" > /dev/null &
+./a -peers=peers1.txt -udp=3000 -fileport=8081 -logfile=log1.txt -base=$dir -storage=backupfile1.txt -key="$key1"  $setFlag -authkey="$authKey1" &
 p1=$!;
 
 #Running the second peer
-./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" > /dev/null &
+./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" &
 p2=$!;
 
 sleep 5s
@@ -75,6 +74,5 @@ fuser -k 3001/udp > /dev/null;
 sleep 1s;
 d="$retrieveDir$dir";
 python3 test_scripts/compare_dirs.py $dir $d;
-echo "$d"
 rm -rf $d > /dev/null;
 $cleanup > /dev/null;

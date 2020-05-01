@@ -1,6 +1,8 @@
 package peers
 
 import (
+	aes2 "crypto/aes"
+	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -75,7 +77,7 @@ func RetrieveBackup(log files.Log, container Container, enc *EncryptionInfo) ([]
 				if e != nil {
 					continue
 				}
-				blob, e := decryptAndVerifyData([]byte(ct), log)
+				blob, e := decryptAndVerifyData(ct, log)
 				if e != nil {
 					fmt.Println(e)
 					continue
@@ -120,17 +122,15 @@ func verifyDownload(c Communicator, d []byte) (bool, error) {
 	}
 	proof, e := unmarshallProof(resp, suite)
 	if e != nil {
-		fmt.Println("stuff ")
 		return false, e
 	}
 	Gc, Hc := G.Clone(), H.Clone()
 	xG, xH := Gc.Mul(x, G), Hc.Mul(x, H)
 	e = proof.Verify(suite, G, H, xG, xH)
 	if e != nil {
-		fmt.Println(e)
 		return false, nil
 	}
-	return true, nil//TODO: Actually perform the ZKP challenge thingy.
+	return true, nil
 }
 
 func performDownloadChallenge(c Communicator, log files.Log) (bool, error) {
@@ -245,11 +245,53 @@ func getBasePoints(d []byte, suite *edwards25519.SuiteEd25519) (G, H kyber.Point
 }
 
 func encryptData(d []byte) []byte {
-	return d//Todo: Encrypt the data using
+	digest := sha256.Sum256(d)
+	iv := sha256.Sum256(digest[:])
+	aes, e := aes2.NewCipher(digest[:][files.KEYLEN:])
+	if e != nil {
+		fmt.Println("Error", e)
+		return nil
+	}
+	cbc := cipher.NewCBCEncrypter(aes, iv[:][files.KEYLEN:])
+	padded := padData(aes.BlockSize(),d)
+	dst := make([]byte, len(padded))
+	cbc.CryptBlocks(dst, padded)
+	return dst
 }
 
 func decryptAndVerifyData(d []byte, log files.Log) ([]byte, error) {
-	return d, nil
+	key, size := log.Key(), log.Size()
+	k, e := hex.DecodeString(key)
+	if e != nil {
+		return nil, e
+	}
+	iv := sha256.Sum256(k)
+	aes, e := aes2.NewCipher(k[files.KEYLEN:])
+	if e != nil {
+		return nil, e
+	}
+	decrypter := cipher.NewCBCDecrypter(aes, iv[:][files.KEYLEN:])
+	dst := make([]byte, len(d))
+	decrypter.CryptBlocks(dst, d)
+	if uint64(len(d)) < size {
+		return nil, new(ErrorFailedProtocol)
+	}
+	blob := dst[:size]
+	digest := sha256.Sum256(blob)
+	hxDigest := hex.EncodeToString(digest[:])
+	if hxDigest != key {
+		return nil, new(ErrorFailedProtocol)
+	}
+	return blob, nil
 }
 
+func padData(blockSize int, d []byte) []byte {
+	if len(d) % blockSize == 0 {
+		return d
+	}
+	padded := make([]byte, blockSize)
+	random.Bytes(padded, random.New())
+	copy(padded, d)
+	return padded
+}
 
