@@ -20,7 +20,16 @@ type TCPUDPServer struct {
 }
 
 func NewServer() (Server, error) {
-	
+	protocol := flag.String("protocol", tcp, "Which protocol to be used")
 	flag.Parse()
+	if *protocol == tcp {
+
+	}
 	return nil, nil
+}
+
+func NewTCPServer() func(*EncryptionInfo, files.BackupHandler) error {
+	//port := flag.String("p", "8080", "Which port to run the server on")
+	//flag.Parse()
+	return nil
 }
