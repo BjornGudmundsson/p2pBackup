@@ -54,35 +54,14 @@ func RetrieveFromLogs(logs files.LogWriter, enc *EncryptionInfo, container Conta
 func RetrieveBackup(log files.Log, container Container, enc *EncryptionInfo) ([]byte, error) {
 	indexes := []uint64(log.Retrieve())
 	size := log.Size()
-	for i := 0; i < 1;i++ {
+	for i := 0; i < 5;i++ {
 		time.Sleep(wait)//Sleep since it can take some time to get an up to date peer list
 		peers := container.GetPeerList()
 		for _, index := range indexes {
 			//Iterate over all possible indexes since each peer may have a different
 			msg := DOWNLOAD + delim + strconv.FormatUint(index, 10) + delim + strconv.FormatUint(size, 10)
 			for _, peer := range peers {
-				c, e := NewCommunicatorFromPeer(peer, enc)
-				if e != nil {
-					continue
-				}
-				e = c.SendMessage([]byte(msg))
-				if e != nil {
-					return nil, e
-				}
-				hasBackup, e := performDownloadChallenge(c, log)
-				if e != nil  || !hasBackup{
-					continue
-				}
-				ct, e := c.GetNextMessage()
-				if e != nil {
-					continue
-				}
-				blob, e := decryptAndVerifyData(ct, log)
-				if e != nil {
-					fmt.Println(e)
-					continue
-				}
-				pt, e := enc.DecodePURBBackup(blob)
+				pt, e := getBackupFromPeer(peer, enc, log, msg)
 				if e != nil {
 					continue
 				}
@@ -91,6 +70,38 @@ func RetrieveBackup(log files.Log, container Container, enc *EncryptionInfo) ([]
 		}
 	}
 	return nil, new(ErrorCouldNotRetrieveBackup)
+}
+
+func getBackupFromPeer(peer Peer, enc *EncryptionInfo, log files.Log, msg string) ([]byte, error) {
+	c, e := NewCommunicatorFromPeer(peer, enc)
+	if e != nil {
+		return nil, e
+	}
+	msgBlob, e := enc.PURBAnon([]byte(msg))
+	if e != nil {
+		return nil, e
+	}
+	e = c.SendMessage(msgBlob)
+	if e != nil {
+		return nil, e
+	}
+	hasBackup, e := performDownloadChallenge(c, log)
+	if e != nil  || !hasBackup{
+		return nil, e
+	}
+	ct, e := c.GetNextMessage()
+	if e != nil {
+		return nil, e
+	}
+	blob, e := decryptAndVerifyData(ct, log)
+	if e != nil {
+		return nil, e
+	}
+	pt, e := enc.DecodePURBBackup(blob)
+	if e != nil {
+		return nil, e
+	}
+	return pt, nil
 }
 
 func dataToScalar(suite purbs.Suite, d []byte) (kyber.Scalar, error) {

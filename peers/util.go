@@ -25,19 +25,19 @@ const errorIndicator = "Error: "
 
 //signPublicKey take a marshalled public key and returns the same key along
 // with a valid signature of that key.
-func signPublicKey(k []byte, signer *EncryptionInfo) ([]byte, error) {
+func signPublicKey(k []byte, signer *EncryptionInfo, nonce []byte) ([]byte, error) {
 	sig, e := signer.Sign(k)
 	if e != nil {
 		return nil, e
 	}
-	hexSig := signer.Enc.EncodeToString(sig)
+	hexSig := signer.Enc.EncodeToString(append(sig, nonce...))
 	hexKey := signer.Enc.EncodeToString(k)
 	return []byte(hexSig + seperator + hexKey), nil
 }
 
 //verifyPublicKey takes in a public key and a signature and validates them and returns a new EC-point
 //for the corresponding key from the alleged suite.
-func verifyPublicKey(d []byte, verifier *EncryptionInfo, suite purbs.Suite) (kyber.Point, error) {
+func verifyPublicKey(d []byte, verifier *EncryptionInfo, suite purbs.Suite, nonce []byte) (kyber.Point, error) {
 	sigKey := strings.Split(string(d), seperator)
 	if len(sigKey) != 2 {
 		return nil, new(ErrorIncorrectFormat)
@@ -50,7 +50,7 @@ func verifyPublicKey(d []byte, verifier *EncryptionInfo, suite purbs.Suite) (kyb
 	if e != nil {
 		return nil, e
 	}
-	_, e = verifier.Verify(key, sig)
+	_, e = verifier.Verify(key, append(sig, nonce...))
 	if e != nil {
 		return nil, e
 	}

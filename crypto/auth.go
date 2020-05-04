@@ -23,6 +23,7 @@ func NewNoMatchingPublicKey() NoMatchingPublicKey {
 type Authenticator interface {
 	Sign(scalar kyber.Scalar, msg []byte, l []byte) ([]byte, error)
 	Verify(msg []byte, sig []byte, link []byte) ([]byte, error)
+	GetAnonSet() anon.Set
 }
 
 type AnonAuthenticator struct {
@@ -49,6 +50,10 @@ func (a *AnonAuthenticator) Sign(scalar kyber.Scalar, msg []byte, l []byte) ([]b
 
 func (a *AnonAuthenticator) Verify(msg, sig, link []byte) ([]byte, error) {
 	return anon.Verify(a.suite, msg, a.set, link, sig)
+}
+
+func (a *AnonAuthenticator) GetAnonSet() anon.Set {
+	return a.set
 }
 
 func NewAnonAuthenticator(suite anon.Suite, fn string) (Authenticator, error) {

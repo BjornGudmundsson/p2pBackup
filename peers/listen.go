@@ -33,7 +33,7 @@ func ListenUDP(port string) {
 	buf := make([]byte, 4096)
 	for {
 		n, addr, e := conn.ReadFromUDP(buf)
-		fmt.Println("Got packet from: ", addr.String())
+		fmt.Println("Got packddet from: ", addr.String())
 		fmt.Println("Message: ", string(buf[:n]))
 		if e != nil {
 			fmt.Println(e.Error())
@@ -60,15 +60,6 @@ func ListenTCP(port string, encInfo *EncryptionInfo, backupHandler files.BackupH
 	}
 }
 
-//verifyData takes in bytes and verifies that
-//this data was sent by a known peer
-func verifyData(data []byte) bool {
-	//TODO: Write the function in such a way that it compares the data against all public keys.
-	return true
-}
-
-
-
 func handleFailure(c Communicator, e error, m purbs.SuiteInfoMap) {
 	if c != nil {
 		c.SendMessage([]byte(e.Error()))
@@ -80,17 +71,17 @@ func isDownload(msg string) (bool, error) {
 	if strings.Contains(msg, DOWNLOAD) {
 		return true, nil
 	}
-	return false, nil//TODO: /make it such that returns true if download, false else and an error if it means nothing
+	return false, nil
 }
 
-func getUploadHandler(suite purbs.Suite,encInfo *EncryptionInfo, backupHandler files.BackupHandler) func(c Communicator) error {
+func getUploadHandler(suite purbs.Suite,encInfo *EncryptionInfo, backupHandler files.BackupHandler,b []byte) func(c Communicator) error {
 	f := func(c Communicator) error {
 		freshPair := key.NewKeyPair(suite)
 		publicBytes, e := freshPair.Public.MarshalBinary()
 		if e != nil {
 			return nil
 		}
-		sig, e := signPublicKey(publicBytes, encInfo)
+		sig, e := signPublicKey(publicBytes, encInfo, b)
 		if e != nil {
 			return e
 		}
@@ -122,24 +113,27 @@ func firstReply(c Communicator,encInfo *EncryptionInfo, backupHandler files.Back
 	if e != nil {
 		return nil, e
 	}
-	download, e := isDownload(string(s))
+	msg, e := encInfo.DecodePURBAnon(s)
+	if e != nil {
+		return nil, e
+	}
+	download, e := isDownload(string(msg))
 	if e != nil {
 		return nil, e
 	}
 	if download {
-		start, size, e := getIndexes(string(s))
+		start, size, e := getIndexes(string(msg))
 		if e != nil {
 			return nil, e
 		}
 		downloadHandler := getDownloadHandler(backupHandler, start, size)
-		//Handle download
 		return downloadHandler, nil
 	}
-	suite, e := purb.GetSuite(string(s))
+	suite, e := purb.GetSuite(string(msg))
 	if e != nil {
 		return nil, e
 	}
-	handler := getUploadHandler(suite, encInfo, backupHandler)
+	handler := getUploadHandler(suite, encInfo, backupHandler, s)
 	return handler, nil
 }
 
@@ -149,14 +143,16 @@ func createHandler(encInfo *EncryptionInfo, backupHandler files.BackupHandler) f
 		handler, e := firstReply(c, encInfo, backupHandler)
 		if e != nil {
 			handleFailure(c, e, suiteMap)
-		}
-		e = handler(c)
-		if e != nil {
-			handleFailure(c, e, suiteMap)
+		} else {
+			e = handler(c)
+			if e != nil {
+				handleFailure(c, e, suiteMap)
+			}
 		}
 	}
 	return f
 }
+
 
 //UploadData takes in a slice of bytes
 //and sends it the given peer.
@@ -164,7 +160,11 @@ func UploadData(d []byte, comm Communicator, encInfo *EncryptionInfo) (uint64, e
 	info := encInfo.RetrievalInfo
 	suite := info.Suite
 	//fmt.Fprintf(conn, info.Suite.String() + "\n")
-	e := comm.SendMessage([]byte(suite.String()))
+	suiteBlob, e := encInfo.PURBAnon([]byte(suite.String()))
+	if e != nil {
+		return 0, e
+	}
+	e = comm.SendMessage(suiteBlob)
 	if e != nil {
 		return 0, e
 	}
@@ -172,7 +172,7 @@ func UploadData(d []byte, comm Communicator, encInfo *EncryptionInfo) (uint64, e
 	if e != nil {
 		return 0, e
 	}
-	pk, e := verifyPublicKey(reply, encInfo, suite)
+	pk, e := verifyPublicKey(reply, encInfo, suite, suiteBlob)
 	if e != nil {
 		return 0, e
 	}

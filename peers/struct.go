@@ -151,8 +151,8 @@ func (enc *EncryptionInfo) Verify(msg, sig []byte) ([]byte, error) {
 func (enc *EncryptionInfo) PURBAnon(d []byte) ([]byte, error) {
 	params := purbs.NewPublicFixedParameters(enc.RetrievalInfo.SuiteInfos, false)
 	suite := enc.RetrievalInfo.Suite
-	recipients := make([]purbs.Recipient, len(enc.RecipientKeys))
-	for i, p := range enc.RecipientKeys {
+	recipients := make([]purbs.Recipient, len(enc.Auth.GetAnonSet()))
+	for i, p := range enc.Auth.GetAnonSet() {
 		r, e := pointToRecipient(p, suite)
 		if e != nil {
 			return nil,  e
@@ -256,6 +256,27 @@ func (enc *EncryptionInfo) DecodePURBBackup(blob []byte) ([]byte, error) {
 	return nil, new(ErrorCouldNotDecode)
 }
 
+func (enc *EncryptionInfo) DecodePURBAnon(blob []byte) ([]byte, error) {
+	suite := enc.RetrievalInfo.Suite
+	x := enc.AuthKey
+	m, e := x.MarshalBinary()
+	if e != nil {
+		return nil, e
+	}
+	recipient, e := purb.NewPrivateRecipient(m, suite)
+	if e != nil {
+		return nil, e
+	}
+	params := purbs.NewPublicFixedParameters(enc.RetrievalInfo.SuiteInfos, false)
+	v, d, e := purbs.Decode(blob, &recipient, params, false)
+	if e != nil {
+		return nil, e
+	}
+	if !v {
+		return nil, new(ErrorCouldNotDecode)
+	}
+	return d, nil
+}
 
 type BackupInfo struct {
 	X kyber.Scalar//The secret to the backup.
