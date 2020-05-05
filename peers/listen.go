@@ -19,15 +19,14 @@ const localhost = "127.0.0.1"
 
 //ListenUDP sets up a UDP server
 //on the given port.
-func ListenUDP(port string) {
+func ListenUDP(port string, container Container, enc *EncryptionInfo) error {
 	serverAddr, e := net.ResolveUDPAddr("udp", port)
 	if e != nil {
-		panic(e)
+		return e
 	}
 	conn, e := net.ListenUDP("udp", serverAddr)
 	if e != nil {
-		fmt.Println(conn)
-		fmt.Println(e.Error())
+		return e
 	}
 	defer conn.Close()
 	buf := make([]byte, 4096)
@@ -39,13 +38,14 @@ func ListenUDP(port string) {
 			fmt.Println(e.Error())
 		}
 	}
+	return nil
 }
 
 //ListenTCP starts a new tcp server on the given port
-func ListenTCP(port string, encInfo *EncryptionInfo, backupHandler files.BackupHandler) {
+func ListenTCP(port string, encInfo *EncryptionInfo, backupHandler files.BackupHandler) error {
 	l, e := net.Listen("tcp4", port)
 	if e != nil {
-		panic(e)
+		return e
 	}
 	defer l.Close()
 	handler := createHandler(encInfo, backupHandler)
@@ -58,6 +58,7 @@ func ListenTCP(port string, encInfo *EncryptionInfo, backupHandler files.BackupH
 			go handler(comm)
 		}
 	}
+	return nil
 }
 
 func handleFailure(c Communicator, e error, m purbs.SuiteInfoMap) {

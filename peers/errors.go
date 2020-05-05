@@ -72,3 +72,9 @@ type ErrorEmptyData struct {}
 func (e *ErrorEmptyData) Error() string {
 	return "Error: No data was sent"
 }
+
+type ErrorProtocolNotFound struct {}
+
+func (e *ErrorProtocolNotFound) Error() string {
+	return "Error: Protocol not found"
+}

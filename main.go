@@ -1,14 +1,9 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
-	"github.com/BjornGudmundsson/p2pBackup/crypto"
-	"github.com/BjornGudmundsson/p2pBackup/kyber"
-	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
 	"github.com/BjornGudmundsson/p2pBackup/utilities"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/BjornGudmundsson/p2pBackup/purb"
@@ -41,57 +36,29 @@ func keyPairs(suite string) {
 	}
 }
 
-func hexToKey(hx string, suite purbs.Suite) (kyber.Scalar, error) {
-	b, e := hex.DecodeString(hx)
-	if e != nil {
-		return nil, e
-	}
-	scalar := suite.Scalar()
-	e = scalar.UnmarshalBinary(b)
-	return scalar, e
-}
-
 func main() {
 	flags := utilities.NewFlags()
 	if flags.GetBool("init") {
 		keyPairs(flags.GetString("suite"))
 		return
 	}
-	s, e := purb.GetSuite(flags.GetString("suite"))
+	container, e := peers.NewContainerFromFile(flags.GetString("peers"))
+	if e != nil {
+		fmt.Println("Could not get the peer list: ", e)
+		return
+	}
+	logfile := flags.GetString("logfile")
+	logHandler, e := files.NewEncryptedLogWriter(logfile, flags.GetString("pw"))
+	if e != nil {
+		fmt.Println("Can't create the log: ", e)
+		return
+	}
+	backupHandler := files.NewBackupBuffer("./"+flags.GetString("storage"))
+	encInfo, e := peers.GetEncryptionInfoFromFlags(flags)
 	if e != nil {
 		fmt.Println(e)
 		return
 	}
-	authKey, e := hexToKey(flags.GetString("authkey"), s)
-	if e != nil {
-		fmt.Println("Not a valid authentication key: ", e)
-		return
-	}
-	container, e := peers.NewContainerFromFile(flags.GetString("peers"))
-	if e != nil {
-		fmt.Println("Could not get the peer list")
-		return
-	}
-	logfile := flags.GetString("logfile")
-	logHandler, e := files.NewEncryptedLogWriter(logfile, authKey.String())
-	if e != nil {
-		fmt.Println("Can't create the log")
-		return
-	}
-	sk, e := hex.DecodeString(flags.GetString("key"))
-	if e != nil {
-		fmt.Println("Your secret key was not valid, here's a new one: Pretend there is a secret key")
-		return
-	}
-
-	info, e := purb.NewKeyInfo(sk, s, flags.GetString("Suites"))
-	if e != nil {
-		fmt.Println("Error: " , e.Error())
-	}
-	udp:= flags.GetString("udp")
-	backupHandler := files.NewBackupBuffer("./"+flags.GetString("storage"))
-	auth, e := crypto.NewAnonAuthenticator(s, flags.GetString("set"))
-	encInfo := peers.NewEncryptionInfo(auth, authKey, nil, info, "", nil)
 	if flags.GetBool("gui") {
 		pages.ServeScripts()
 		http.HandleFunc("/", pages.IndexPage)
@@ -107,14 +74,21 @@ func main() {
 			files.ReconstructBackup(backup, base)
 		}
 	} else {
-		//PrintInfo(baseDir, peersList, udpPort, rules, storageFile, backupLogs, filePort, false)
-		timer, e := time.ParseDuration(flags.GetString("backuprate"))
-		if e != nil {
-			panic(e)
+		if flags.GetBool("update") {
+			timer, e := time.ParseDuration(flags.GetString("backuprate"))
+			if e != nil {
+				fmt.Println(e)
+				return
+			}
+			backupRules := files.CreateRules(flags.GetString("backuprules"))
+			go peers.Update(timer, base, backupRules, container, logfile, encInfo, logHandler)
 		}
-		backupRules := files.CreateRules(flags.GetString("backuprules"))
-		go peers.Update(timer, base, backupRules, container, logfile, encInfo, logHandler)
-		go peers.ListenUDP(":" + udp)
-		peers.ListenTCP(":"+strconv.Itoa(flags.GetInt("fileport")), encInfo, backupHandler)
+		server, e := peers.NewServer(flags, backupHandler, encInfo, container)
+		if e != nil {
+			fmt.Println(e)
+			return
+		}
+		go server.FindPeers()
+		server.Listen()
 	}
 }

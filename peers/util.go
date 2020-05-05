@@ -3,10 +3,13 @@ package peers
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
+	"github.com/BjornGudmundsson/p2pBackup/crypto"
 	"github.com/BjornGudmundsson/p2pBackup/kyber"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/random"
 	"github.com/BjornGudmundsson/p2pBackup/purb"
 	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
+	"github.com/BjornGudmundsson/p2pBackup/utilities"
 	"net"
 	"strconv"
 	"strings"
@@ -19,6 +22,7 @@ const eof = "\n"
 
 //tcp is the constant to signal they are using tcp
 const tcp = "tcp"
+const udp = "udp"
 
 const errorIndicator = "Error: "
 
@@ -146,4 +150,34 @@ func NewHexEncoder() Encoder {
 
 func NewB64Encoder() Encoder {
 	return base64Encoder{}
+}
+
+func GetEncryptionInfoFromFlags(flags utilities.Flags) (*EncryptionInfo, error) {
+	s, e := purb.GetSuite(flags.GetString("suite"))
+	if e != nil {
+		fmt.Println(e)
+		return nil, e
+	}
+	authKey, e := utilities.HexToKey(flags.GetString("authkey"), s)
+	if e != nil {
+		fmt.Println("Not a valid authentication key: ", e)
+		fmt.Println(authKey)
+		return nil, e
+	}
+	sk, e := hex.DecodeString(flags.GetString("key"))
+	if e != nil {
+		return nil, e
+	}
+
+	info, e := purb.NewKeyInfo(sk, s, flags.GetString("Suites"))
+	if e != nil {
+		fmt.Println("Error: " , e.Error())
+		return nil, e
+	}
+	auth, e := crypto.NewAnonAuthenticator(s, flags.GetString("set"))
+	if e != nil {
+		return nil, e
+	}
+	enc  := NewEncryptionInfo(auth, authKey, nil, info, "", nil)
+	return enc, nil
 }

@@ -75,6 +75,9 @@ func NewFlags() Flags {
 	setString := flag.String("set", "", "The file containing the public keys of the anonymity set")
 	retrieve := flag.Bool("retrieve", false, "Retrieving or storing back ups")
 	retrievalPassword := flag.String("pw", "deadbeef", "Password used for encrypting/decrypting backups")
+	protocol := flag.String("protocol", "tcp", "What protocol should be used")
+	findProtocol := flag.String("find", "udp", "how to find other peers")
+	update := flag.Bool("update", true, "whether it should be periodically backing up data")
 	flag.Parse()
 	flags := &FlagsContainer{
 		ints: make(map[string]int),
@@ -99,6 +102,9 @@ func NewFlags() Flags {
 	flags.booleans["retrieve"] = *retrieve
 	flags.booleans["init"] = *initialize
 	flags.ints["fileport"] = *filePort
+	flags.strings["protocol"] = *protocol
+	flags.strings["find"] = *findProtocol
+	flags.booleans["update"] = *update
 	return flags
 }
 
