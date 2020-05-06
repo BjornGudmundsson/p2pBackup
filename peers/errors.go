@@ -78,3 +78,9 @@ type ErrorProtocolNotFound struct {}
 func (e *ErrorProtocolNotFound) Error() string {
 	return "Error: Protocol not found"
 }
+
+type ErrorCouldNotSendLocation struct {}
+
+func (e *ErrorCouldNotSendLocation) Error() string {
+	return "Error: could not send the location to peers"
+}

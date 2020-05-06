@@ -8,6 +8,7 @@ type Container interface {
 	GetPeerList() []Peer//Get all currently contained peer.
 	Update(p Peer)//Update the container by either removing or adding a peer.
 	Storage()//Write the container to long term storage.
+	New(peers []Peer)
 }
 
 
@@ -15,6 +16,16 @@ type PeerContainer struct {
 	mutex sync.Mutex
 	container map[string]Peer
 	peerFile string
+}
+
+func (pc *PeerContainer) New(peers []Peer) {
+	pc.mutex.Lock()
+	container := make(map[string]Peer)
+	for _, peer := range peers {
+		container[peer.String()] = peer
+	}
+	pc.container = container
+	pc.mutex.Unlock()
 }
 
 func (pc *PeerContainer) GetPeerList() []Peer {

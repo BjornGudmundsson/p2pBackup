@@ -20,9 +20,13 @@ const seperator = " "
 //eof stands for end of feed
 const eof = "\n"
 
+//File sending constants
 //tcp is the constant to signal they are using tcp
 const tcp = "tcp"
+
+//Peer finding constants
 const udp = "udp"
+const GIT = "git"
 
 const errorIndicator = "Error: "
 

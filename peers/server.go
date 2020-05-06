@@ -1,9 +1,11 @@
 package peers
 
 import (
+	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/files"
 	"github.com/BjornGudmundsson/p2pBackup/utilities"
 	"strconv"
+	"time"
 )
 
 type Server interface {
@@ -46,6 +48,9 @@ func getFindProtocol(flags utilities.Flags, protocol string, enc *EncryptionInfo
 	if protocol == udp {
 		return NewUDPServer(flags, container, enc), nil
 	}
+	if protocol == GIT {
+		return NewGitServer(flags, container, enc), nil
+	}
 	return nil, new(ErrorProtocolNotFound)
 }
 
@@ -72,4 +77,68 @@ func NewUDPServer(flags utilities.Flags, container Container, enc *EncryptionInf
 		return ListenUDP(":" + port, container, enc)
 	}
 	return f
+}
+
+func NewGitServer(flags utilities.Flags, container Container, enc *EncryptionInfo) func() error {
+	f := func() error {
+		go updatePeersGit(flags, container, enc)
+		return FindPeersGit(flags, container, enc)
+	}
+	return f
+}
+
+func updatePeersGit(flags utilities.Flags, container Container, enc *EncryptionInfo) error {
+	pingTimer := flags.GetString("ping")
+	t, e := time.ParseDuration(pingTimer)
+	if e != nil {
+		return e
+	}
+	for {
+		time.Sleep(t)
+		pw, un, email := flags.GetString("gitpw"), flags.GetString("gituser"), flags.GetString("email")
+		repo := flags.GetString("repo")
+		port := flags.GetInt("fileport")
+		ip := flags.GetString("ip")
+		m := encodePeer(enc, ip+seperator+strconv.Itoa(port))
+		e = PushMessageParallel(repo, un, pw, email, m)
+		if e != nil {
+			fmt.Println(e)
+		}
+	}
+}
+
+func encodePeer(enc *EncryptionInfo, p string) string {
+	return p
+}
+
+func FindPeersGit(flags utilities.Flags, container Container, enc *EncryptionInfo) error {
+	pingTimer := flags.GetString("ping")
+	t, e := time.ParseDuration(pingTimer)
+	if e != nil {
+		return e
+	}
+	repo := flags.GetString("repo")
+	pw, un := flags.GetString("gitpw"), flags.GetString("gituser")
+	for {
+		msgs, e := GetCommitMessages(repo, un, pw, t)
+		if e != nil {
+			fmt.Println(e)
+			time.Sleep(t)
+			continue
+		}
+		peers := make([]Peer, 0)
+		for _, msg := range msgs {
+			p, e := getPeerFromMsg(msg, container, enc)
+			if e != nil {
+				continue
+			}
+			peers = append(peers, p)
+		}
+		container.New(peers)
+	}
+	return nil
+}
+
+func getPeerFromMsg(msg string, container Container, enc *EncryptionInfo) (Peer, error) {
+	return NewPeer(msg)
 }

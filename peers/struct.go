@@ -69,7 +69,7 @@ func (p *TCPPeer) TransmissionProtocol() string {
 //else it returns an error.
 func NewPeer(desc string) (*TCPPeer, error) {
 	fields := strings.Split(desc, " ")
-	if len(fields) != 3 {
+	if len(fields) != 3  && len(fields) != 2 {
 		return nil, errors.New("not the right amount of fields")
 	}
 	p := &TCPPeer{}

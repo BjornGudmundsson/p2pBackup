@@ -6,6 +6,8 @@ import (
 	"github.com/BjornGudmundsson/p2pBackup/kyber/group/curve25519"
 )
 
+const testRepo = "https://github.com/BjornGudmundsson/TestRepo"
+
 type ErrorNotFound struct {
 	flag string
 }
@@ -58,7 +60,7 @@ func (f *FlagsContainer) GetBool(flag string) bool {
 //without having to call flag.Parse repeatedly
 func NewFlags() Flags {
 	port := flag.String("p", "8080", "Which port to run the server on")
-	baseDir := flag.String("base", ".", "Base is the basedirectory in which all files will be backed up from. If not provided it will default to the running directory")
+	baseDir := flag.String("base", ".", "Base is the base directory in which all files will be backed up from. If not provided it will default to the running directory")
 	peersList := flag.String("peers", "peers.txt", "Peers is the file in which the data about other peers is stored")
 	udpPort := flag.String("udp", "5000", "UDP is the port that will be used for the udp socket")
 	rules := flag.String("backuprules", "", "backuprules is the toml file in which the specifications for the backup are kept")
@@ -78,6 +80,8 @@ func NewFlags() Flags {
 	protocol := flag.String("protocol", "tcp", "What protocol should be used")
 	findProtocol := flag.String("find", "udp", "how to find other peers")
 	update := flag.Bool("update", true, "whether it should be periodically backing up data")
+	repo := flag.String("repo", testRepo, "If the git protocol is used, where the peer list is kept")
+	ip := flag.String("ip", "127.0.0.1", "The IP address of this peer")
 	flag.Parse()
 	flags := &FlagsContainer{
 		ints: make(map[string]int),
@@ -105,6 +109,8 @@ func NewFlags() Flags {
 	flags.strings["protocol"] = *protocol
 	flags.strings["find"] = *findProtocol
 	flags.booleans["update"] = *update
+	flags.strings["repo"] = *repo
+	flags.strings["ip"] = *ip
 	return flags
 }
 
