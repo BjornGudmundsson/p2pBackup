@@ -26,6 +26,7 @@ type Peer interface {
 	fmt.Stringer
 	TransmissionProtocol() string
 	Available() bool
+	Marshall() []byte
 }
 
 //TCPPeer is a container of how
@@ -61,6 +62,11 @@ func (p *TCPPeer) TransmissionProtocol() string {
 	return tcp
 }
 
+func (p *TCPPeer) Marshall() []byte {
+	s := p.Addr.String() + seperator + strconv.Itoa(p.port)
+	return []byte(s)
+}
+
 
 
 //NewPeer takes in a description string of the form
@@ -70,11 +76,13 @@ func (p *TCPPeer) TransmissionProtocol() string {
 func NewPeer(desc string) (*TCPPeer, error) {
 	fields := strings.Split(desc, " ")
 	if len(fields) != 3  && len(fields) != 2 {
+		fmt.Println(len(fields))
 		return nil, errors.New("not the right amount of fields")
 	}
 	p := &TCPPeer{}
 	ip := net.ParseIP(fields[0])
 	if ip == nil {
+		fmt.Println("Field ", len(fields[0]))
 		return nil, errors.New("could not parse IP")
 	}
 	port,e := strconv.Atoi(fields[1])
@@ -91,13 +99,13 @@ func NewPeer(desc string) (*TCPPeer, error) {
 //GetPeerList takes in a file that has all the known peers
 //and returns a slice with all of the peers in the file.
 //If the file can't read or one of the peers is malformed it returns an error.
-func GetPeerList(peerFile string) ([]*TCPPeer, error) {
+func GetPeerList(peerFile string) ([]Peer, error) {
 	f, e := os.Open(peerFile)
 	if e != nil {
 		return nil, e
 	}
 	defer f.Close()
-	peers := make([]*TCPPeer, 0)
+	peers := make([]Peer, 0)
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		txt := scanner.Text()
@@ -106,6 +114,7 @@ func GetPeerList(peerFile string) ([]*TCPPeer, error) {
 		}
 		p, e := NewPeer(txt)
 		if e != nil {
+			fmt.Println(txt)
 			return nil, e
 		}
 		peers = append(peers, p)

@@ -143,3 +143,10 @@ func decompressData(p []byte, do bool) ([]byte, error) {
 	}
 	return rbuf.Bytes(), e
 }
+
+func ReplaceBytes(fn string, newData []byte) error {
+	os.Remove(fn)
+	f, e := os.Create(fn)
+	_, e = f.Write(newData)
+	return e
+}

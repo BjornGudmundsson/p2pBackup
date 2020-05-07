@@ -1,6 +1,9 @@
 package peers
 
 import (
+	"fmt"
+	"github.com/BjornGudmundsson/p2pBackup/files"
+	"strings"
 	"sync"
 )
 
@@ -31,11 +34,7 @@ func (pc *PeerContainer) New(peers []Peer) {
 func (pc *PeerContainer) GetPeerList() []Peer {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
-	peers := make([]Peer, 0)
-	for _, v := range pc.container {
-		peers = append(peers, v)
-	}
-	return peers
+	return pc.getPeerList()
 }
 
 func (pc *PeerContainer) Update(p Peer) {
@@ -49,10 +48,28 @@ func (pc *PeerContainer) Update(p Peer) {
 	}
 }
 
+func (pc *PeerContainer) getPeerList() []Peer {
+	peers := make([]Peer, 0)
+	for _, v := range pc.container {
+		peers = append(peers, v)
+	}
+	return peers
+}
+
 func (pc *PeerContainer) Storage() {
 	pc.mutex.Lock()
-	defer pc.mutex.Unlock()
-	//TODO: Add such that the current state of the container is written to long term storage.
+	peers := pc.getPeerList()
+	fn := pc.peerFile
+	s := make([]string, len(peers))
+	for i, p := range peers {
+		s[i] = string(p.Marshall())
+	}
+	d := strings.Join(s, "\n")
+	e := files.ReplaceBytes(fn, []byte(d))
+	if e != nil {
+		fmt.Println(e)
+	}
+	pc.mutex.Unlock()
 }
 
 func NewContainerFromFile(fn string) (Container, error) {

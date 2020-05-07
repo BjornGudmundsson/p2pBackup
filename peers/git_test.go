@@ -77,6 +77,10 @@ func TestUpdateContainer(t *testing.T) {
 	}
 	container.New([]Peer{p1, p2})
 	oldContainer := container.GetPeerList()
+	container.Storage()
+	peersFromFile, e := GetPeerList("peers.txt")
+	assert.Nil(t, e, "Should be able to get the peer list")
+	assert.True(t, arraysAreEqual(peersFromFile, oldContainer), "")
 	e = PushMessageParallel(repo, user, pw, email, m1)
 	assert.Nil(t, e, "Should be able to push")
 	e = PushMessageParallel(repo, user, pw, email, m2)
@@ -84,7 +88,6 @@ func TestUpdateContainer(t *testing.T) {
 	msgs, e := GetCommitMessages(repo, user, pw, 2 * time.Minute)
 	assert.Nil(t, e, "Should be able to get the logs")
 	peers, e := PeersFromStrings(msgs)
-	fmt.Println(peers, oldContainer)
 	assert.True(t, arraysAreEqual(peers, oldContainer), "Should equal the old container")
 	assert.Nil(t, e, "Should be able to get peer list")
 	assert.True(t, isInArray(oldContainer, p1), "peer 1 should be in the old container")
@@ -103,6 +106,10 @@ func TestUpdateContainer(t *testing.T) {
 	newContainer := container.GetPeerList()
 	assert.False(t, arraysAreEqual(oldContainer, newContainer), "New and old container should not be equal")
 	assert.True(t, len(oldContainer) == len(newContainer), "Containers should be of the same length")
+	container.Storage()
+	peersFromFile, e = GetPeerList("peers.txt")
+	assert.Nil(t, e, "Should be able to get the peer list")
+	assert.True(t, arraysAreEqual(newContainer, peersFromFile), "Peers should equal after being written to file")
 }
 
 
