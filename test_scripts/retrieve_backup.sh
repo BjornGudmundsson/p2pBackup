@@ -54,7 +54,7 @@ p1=$!;
 ./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" &
 p2=$!;
 
-sleep 5s
+sleep 7s
 
 #Retrieving the backup from peer1
 ./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$retrieveDir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" -retrieve=true

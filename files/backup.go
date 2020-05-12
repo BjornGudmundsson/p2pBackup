@@ -31,20 +31,27 @@ type BackupBuffer struct {
 	wait time.Duration
 }
 
+//AddBackup takes in data and backs it up by writing to the file
+//or by buffering it up
 func (bb *BackupBuffer) AddBackup(d []byte) int64 {
+	bb.mtx.Lock()
+	defer bb.mtx.Unlock()
 	fn := bb.fn
 	fl, e := GetFile(fn)
 	if e != nil {
 		return -1
 	}
-	e = AppendToFile(*fl, d)
-	if e != nil {
-		return -1
-	}
-	return fl.Size
+	unwrittenSize := len(bb.buffer)
+	bb.buffer = append(bb.buffer, d...)
+	return fl.Size + int64(unwrittenSize)
 }
 
+
+//ReadFrom reads the bytes of the buffer from the start index and reads
+//size amount of bytes.
 func (bb *BackupBuffer) ReadFrom(start, size int64) ([]byte, error) {
+	bb.mtx.Lock()
+	defer bb.mtx.Unlock()
 	fn := bb.fn
 	f, e := os.OpenFile(fn, os.O_RDONLY, os.ModeAppend)
 	if e != nil {
@@ -55,16 +62,44 @@ func (bb *BackupBuffer) ReadFrom(start, size int64) ([]byte, error) {
 	return buffer, e
 }
 
+//writeToFile runs while the system is running and periodically adds new backups
 func (bb *BackupBuffer) writeToFile() {
+	fn := bb.fn
 	for {
+		//Sleep to allow different backups to 'buffer up'
 		time.Sleep(bb.wait)
+		//Locking the file while adding the data
+		bb.mtx.Lock()
+		//Write the current buffer to the file
+		buffer := bb.buffer
+		if len(buffer) == 0 || buffer == nil {
+			bb.mtx.Unlock()
+			continue
+		}
+		fl, e := GetFile(fn)
+		if e != nil {
+			bb.mtx.Unlock()
+			continue
+		}
+		e = AppendToFile(*fl, buffer)
+		if e != nil {
+			bb.mtx.Unlock()
+			continue
+		}
+		bb.buffer = nil
+		bb.mtx.Unlock()
 	}
 }
 
 func NewBackupBuffer(fn string) BackupHandler {
-	return &BackupBuffer{
+	bb := &BackupBuffer{
 		fn: fn,
+		buffer: make([]byte, 0),
+		wait: time.Second,
 	}
+	//Keep a loop running that periodically writes to file
+	go bb.writeToFile()
+	return bb
 }
 
 
