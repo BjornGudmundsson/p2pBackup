@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"io/ioutil"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -25,24 +24,11 @@ type BackupHandler interface {
 	ReadFrom(start, end int64) ([]byte, error)
 }
 
-//AddBackup takes in the data that is being backed up
-//and the name of the file where the backup log will be kept.
-func AddBackup(d []byte, fn string) error {
-	f, e := GetFile(fn)
-	if e != nil {
-		return e
-	}
-	h := sha256.Sum256(d)
-	hx := hex.EncodeToString(h[:])
-	now := time.Now()
-	size := len(d)
-	str := strconv.Itoa(size) + ";" + hx + ";" + now.String() + "\n"
-	return AppendToFile(*f, []byte(str))
-}
-
 type BackupBuffer struct {
 	fn string
-	//TODO: Add some sane data structure to buffer the backups
+	mtx sync.Mutex
+	buffer []byte
+	wait time.Duration
 }
 
 func (bb *BackupBuffer) AddBackup(d []byte) int64 {
@@ -67,6 +53,12 @@ func (bb *BackupBuffer) ReadFrom(start, size int64) ([]byte, error) {
 	buffer := make([]byte, size)
 	_, e = f.ReadAt(buffer, start)
 	return buffer, e
+}
+
+func (bb *BackupBuffer) writeToFile() {
+	for {
+		time.Sleep(bb.wait)
+	}
 }
 
 func NewBackupBuffer(fn string) BackupHandler {

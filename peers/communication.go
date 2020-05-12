@@ -3,6 +3,7 @@ package peers
 import (
 	"bufio"
 	"fmt"
+	"golang.org/x/net/proxy"
 	"net"
 )
 
@@ -63,6 +64,19 @@ func NewTCPCommunicatorFromPeer(p Peer, enc *EncryptionInfo) (Communicator, erro
 	}, nil
 }
 
+func NewTorCommunicatorFromPeer(p Peer, enc *EncryptionInfo) (Communicator, error) {
+	dialer, e := proxy.SOCKS5("tcp", "127.0.0.1:9050", nil, nil)
+	if e != nil {
+		return nil, e
+	}
+	c, e := dialer.Dial("tcp", p.ConnectorString())
+	if e != nil {
+		return nil, e
+	}
+	com := NewTCPCommunicatorFromConn(c, enc)
+	return com, nil
+}
+
 func NewTCPCommunicatorFromConn(c net.Conn, enc *EncryptionInfo) Communicator {
 	return TCPCommunicator{
 		c: c,
@@ -74,6 +88,9 @@ func NewCommunicatorFromPeer(p Peer, enc *EncryptionInfo) (Communicator, error) 
 	protocol := p.TransmissionProtocol()
 	if protocol == tcp {
 		return NewTCPCommunicatorFromPeer(p, enc)
+	}
+	if protocol == tor {
+		return NewTorCommunicatorFromPeer(p, enc)
 	}
 	return nil, nil
 }

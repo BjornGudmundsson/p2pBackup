@@ -27,6 +27,8 @@ type Peer interface {
 	TransmissionProtocol() string
 	Available() bool
 	Marshall() []byte
+	Unmarshall(d []byte) error
+	ConnectorString() string
 }
 
 //TCPPeer is a container of how
@@ -36,6 +38,7 @@ type TCPPeer struct {
 	port      int
 	seen time.Time
 	available bool
+	protocol string
 }
 
 func (p *TCPPeer) Address() net.IP {
@@ -59,30 +62,45 @@ func (p *TCPPeer) String() string {
 }
 
 func (p *TCPPeer) TransmissionProtocol() string {
-	return tcp
+	return p.protocol
 }
 
 func (p *TCPPeer) Marshall() []byte {
-	s := p.Addr.String() + seperator + strconv.Itoa(p.port)
+	s := p.Addr.String() + seperator + strconv.Itoa(p.port) + seperator + p.protocol
 	return []byte(s)
+}
+
+func (p *TCPPeer) Unmarshall(d []byte) error {
+	p2, e := NewTCPPeer(string(d))
+	if e != nil {
+		return e
+	}
+	p.protocol = p2.TransmissionProtocol()
+	p.port = p2.Port()
+	p.Addr = p2.Address()
+	p.seen = time.Now()
+	p.available = true
+	return nil
+}
+
+func (p *TCPPeer) ConnectorString() string {
+	return p.Address().String()+":"+strconv.Itoa(p.Port())
 }
 
 
 
-//NewPeer takes in a description string of the form
+//NewTCPPeer takes in a description string of the form
 //[Name IP hex_of_public_key CipherSuite_being_used]
 //and returns a pointer to a peer if it is a valid string
 //else it returns an error.
-func NewPeer(desc string) (*TCPPeer, error) {
+func NewTCPPeer(desc string) (Peer, error) {
 	fields := strings.Split(desc, " ")
-	if len(fields) != 3  && len(fields) != 2 {
-		fmt.Println(len(fields))
+	if len(fields) != 4  && len(fields) != 3 {
 		return nil, errors.New("not the right amount of fields")
 	}
 	p := &TCPPeer{}
 	ip := net.ParseIP(fields[0])
 	if ip == nil {
-		fmt.Println("Field ", len(fields[0]))
 		return nil, errors.New("could not parse IP")
 	}
 	port,e := strconv.Atoi(fields[1])
@@ -93,6 +111,7 @@ func NewPeer(desc string) (*TCPPeer, error) {
 	p.port = port
 	p.seen = time.Now()
 	p.available = true
+	p.protocol = fields[2]
 	return p, nil
 }
 
@@ -112,7 +131,7 @@ func GetPeerList(peerFile string) ([]Peer, error) {
 		if txt == "" {
 			continue
 		}
-		p, e := NewPeer(txt)
+		p, e := NewTCPPeer(txt)
 		if e != nil {
 			fmt.Println(txt)
 			return nil, e

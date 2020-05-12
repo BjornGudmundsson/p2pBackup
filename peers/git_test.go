@@ -53,22 +53,22 @@ func TestPushMessageParallel(t *testing.T) {
 }
 
 func TestUpdateContainer(t *testing.T) {
-	time.Sleep(2 * time.Minute)
 	user := os.Getenv("user")
 	pw := os.Getenv("pw")
 	repo := os.Getenv("repo")
 	email := os.Getenv("email")
-	if pw == "" || user == "" {
+	if pw == "" || user == ""{
 		t.Log("Have to give environment variables to access the git service of choice")
 		return
 	}
+	time.Sleep(2 * time.Minute)
 	ip1, port1 := "127.0.0.1", "3000"
 	ip2, port2 := "127.0.0.1", "3001"
 	m1 := ip1 + seperator + port1
 	m2 := ip2 + seperator + port2
-	p1, e := NewPeer(m1)
+	p1, e := NewTCPPeer(m1)
 	assert.Nil(t, e, "can't make peer")
-	p2, e := NewPeer(m2)
+	p2, e := NewTCPPeer(m2)
 	assert.Nil(t, e, "can't make peer")
 	container := &PeerContainer{
 		mutex:     sync.Mutex{},
@@ -116,7 +116,7 @@ func TestUpdateContainer(t *testing.T) {
 func PeersFromStrings(msgs []string) ([]Peer, error) {
 	peers := make([]Peer, 0)
 	for _, msg := range msgs {
-		p, e := NewPeer(msg)
+		p, e := NewTCPPeer(msg)
 		fmt.Println(msg)
 		if e != nil {
 			fmt.Println(e)

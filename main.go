@@ -47,6 +47,7 @@ func main() {
 		fmt.Println("Could not get the peer list: ", e)
 		return
 	}
+
 	logfile := flags.GetString("logfile")
 	logHandler, e := files.NewEncryptedLogWriter(logfile, flags.GetString("pw"))
 	if e != nil {

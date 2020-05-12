@@ -117,6 +117,11 @@ func FindPeersGit(flags utilities.Flags, container Container, enc *EncryptionInf
 	if e != nil {
 		return e
 	}
+	protocol := flags.GetString("protocol")
+	unmarshall, e := howToUnmarshallPeer(protocol)
+	if e != nil {
+		return e
+	}
 	repo := flags.GetString("repo")
 	pw, un := flags.GetString("gitpw"), flags.GetString("gituser")
 	for {
@@ -128,17 +133,30 @@ func FindPeersGit(flags utilities.Flags, container Container, enc *EncryptionInf
 		}
 		peers := make([]Peer, 0)
 		for _, msg := range msgs {
-			p, e := getPeerFromMsg(msg, container, enc)
+			p, e := getPeerFromMsg(msg, container, enc, unmarshall)
 			if e != nil {
 				continue
 			}
 			peers = append(peers, p)
 		}
 		container.New(peers)
+		container.Storage()
 	}
 	return nil
 }
 
-func getPeerFromMsg(msg string, container Container, enc *EncryptionInfo) (Peer, error) {
-	return NewPeer(msg)
+func getPeerFromMsg(msg string, container Container, enc *EncryptionInfo, f func(d []byte) (Peer, error)) (Peer, error) {
+	return f([]byte(msg))
+}
+
+func howToUnmarshallPeer(protocol string) (func(d []byte) (Peer, error), error) {
+	if protocol == tcp {
+		return func(d []byte) (Peer, error) {
+			return NewTCPPeer(string(d))
+		}, nil
+	}
+	if protocol == GIT {
+		return nil, nil
+	}
+	return nil, new(ErrorProtocolNotFound)
 }

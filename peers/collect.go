@@ -39,6 +39,7 @@ func Update(wait time.Duration, basedir string, rules files.BackupData, peerCont
 					for _, peer := range peers {
 						comm, e := NewCommunicatorFromPeer(peer, encInfo)
 						if e != nil {
+							fmt.Println(e)
 							continue
 						}
 						index, e := UploadData(ct, comm, encInfo)

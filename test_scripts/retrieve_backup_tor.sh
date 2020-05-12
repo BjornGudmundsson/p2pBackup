@@ -1,7 +1,9 @@
-DEBUG=true;
+DEBUG=false;
 RED='\033[0;31m'
 NC='\033[0m'
 GREEN='\033[0;32m'
+#starting tor
+$tor;
 #Making the test directories
 dummyContent="deadbeef lmao abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567898EmNvHAHEYHlWV"
 dir="testDir"
@@ -36,8 +38,8 @@ echo $publicAuthKey2 >> set.txt;
 touch peers1.txt peers2.txt;
 echo "Bjorn er cool" >> backupfile2.txt;
 echo "Bjorn er cool" >> backupfile1.txt;
-echo "127.0.0.1 8081 tcp" >> peers1.txt;
-echo "127.0.0.1 8082 tcp" >> peers2.txt;
+echo "127.0.0.1 8081 tor" >> peers1.txt;
+echo "127.0.0.1 8082 tor" >> peers2.txt;
 
 if [ "$DEBUG" = true ]; then
   make build > /dev/null;
@@ -76,3 +78,5 @@ d="$retrieveDir$dir";
 python3 test_scripts/compare_dirs.py $dir $d;
 rm -rf $d > /dev/null;
 $cleanup > /dev/null;
+#stopping tor
+systemctl stop tor;

@@ -15,6 +15,7 @@ require (
 	go.dedis.ch/kyber/v3 v3.0.12
 	go.dedis.ch/protobuf v1.0.11
 	golang.org/x/crypto v0.0.0-20200317142112-1b76d66859c6
+	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 	golang.org/x/sys v0.0.0-20200317113312-5766fd39f98d // indirect
 	gopkg.in/dedis/onet.v2 v2.0.0-20181115163211-c8f3724038a7
 )

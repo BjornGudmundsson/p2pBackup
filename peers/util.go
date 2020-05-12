@@ -11,7 +11,6 @@ import (
 	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
 	"github.com/BjornGudmundsson/p2pBackup/utilities"
 	"net"
-	"strconv"
 	"strings"
 )
 
@@ -23,10 +22,12 @@ const eof = "\n"
 //File sending constants
 //tcp is the constant to signal they are using tcp
 const tcp = "tcp"
+const tor = "tor"
 
 //Peer finding constants
 const udp = "udp"
 const GIT = "git"
+const rounds = 5
 
 const errorIndicator = "Error: "
 
@@ -119,7 +120,7 @@ func signAndPURB(signer *EncryptionInfo, recipients []purbs.Recipient, suite pur
 
 
 func getTCPConn(p Peer) (net.Conn, error) {
-	c, e := net.Dial("tcp", p.Address().String()+":"+strconv.Itoa(p.Port()))
+	c, e := net.Dial("tcp", p.ConnectorString())
 	return c, e
 }
 
