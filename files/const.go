@@ -23,5 +23,5 @@ const DefaultExcludedRule = ""
 //be considered for backing up
 const DefaultMaxElapsedTime = time.Second
 
-
+const metadatasize = 2 * KEYLEN
 const compress = true

@@ -13,47 +13,10 @@ import (
 //to send and backup to its peers. The wait parameter defines the amount of time to wait between
 //searching for new backups and the basedir says where to find the files to backup. rules is
 //used to assist in automatic filter of non-backupable files.
-func Update(wait time.Duration, basedir string, rules files.BackupData, peerContainer Container, backupLog string, encInfo *EncryptionInfo, handler files.LogWriter) {
+func Update(w time.Duration, dir string, rules files.BackupData, container Container, enc *EncryptionInfo, h files.LogWriter) {
 	for {
-		time.Sleep(wait)
-		peers := peerContainer.GetPeerList()
-		backupFiles, e := files.FindAllFilesToBackup(rules, basedir)
-		if e != nil {
-			fmt.Println(e)
-		} else {
-			data, e := files.ToBytes(backupFiles)
-			if e != nil {
-				fmt.Println("Could not read the files")
-				fmt.Println(e)
-			} else {
-				if e != nil {
-					panic(e)
-				}
-				indexes := make([]uint64, 0)
-				hasBeenBackedUp, e := handler.CheckIfBackedUp(data)
-				if !hasBeenBackedUp && len(data) != 0 && e == nil {
-					ct, e := encInfo.PURBBackup(data)
-					if e != nil {
-						continue
-					}
-					for _, peer := range peers {
-						comm, e := NewCommunicatorFromPeer(peer, encInfo)
-						if e != nil {
-							fmt.Println(e)
-							continue
-						}
-						index, e := UploadData(ct, comm, encInfo)
-						if e != nil {
-							fmt.Println(e.Error())
-						} else {
-							indexes = append(indexes, index)
-						}
-					}
-					log := handler.NewLog(data, indexes, ct)
-					e = handler.Log(log)
-				}
-			}
-		}
+		time.Sleep(w)
+		BackupDate(dir, rules, container, enc, h)
 	}
 }
 
@@ -64,4 +27,44 @@ func extractIndexFromMessage(msg string) (uint64, error) {
 	}
 	ind, e := strconv.Atoi(fields[1])
 	return uint64(ind), e
+}
+
+func BackupDate(dir string, rules files.BackupData, container Container, enc *EncryptionInfo, h files.LogWriter) {
+	peers := container.GetPeerList()
+	backupFiles, e := files.FindAllFilesToBackup(rules, dir)
+	if e != nil {
+		fmt.Println(e)
+	} else {
+		data, e := files.ToBytes(backupFiles)
+		if e != nil {
+			fmt.Println("Could not read the files: ", e)
+		} else {
+			if e != nil {
+				panic(e)
+			}
+			indexes := make([]uint64, 0)
+			hasBeenBackedUp, e := h.CheckIfBackedUp(data)
+			if !hasBeenBackedUp && len(data) != 0 && e == nil {
+				ct, e := enc.PURBBackup(data)
+				if e != nil {
+					return
+				}
+				for _, peer := range peers {
+					comm, e := NewCommunicatorFromPeer(peer, enc)
+					if e != nil {
+						fmt.Println(e)
+						continue
+					}
+					index, e := UploadData(ct, comm, enc)
+					if e != nil {
+						fmt.Println(e.Error())
+					} else {
+						indexes = append(indexes, index)
+					}
+				}
+				log := h.NewLog(data, indexes, ct)
+				e = h.Log(log)
+			}
+		}
+	}
 }

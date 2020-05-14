@@ -65,8 +65,8 @@ func TestModified(t *testing.T) {
 
 func TestTomlRead(t *testing.T) {
 	bd := CreateRules("./test.toml")
-	assert.Equal(t, 2*time.Second, bd.GetMinTime(), "The toml should have 1 second in the modify time")
-	assert.Equal(t, int64(500), bd.MaxSize, "500 bytes should be the maximum size allowed")
+	assert.Equal(t, time.Second, bd.GetMinTime(), "The toml should have 1 second in the modify time")
+	assert.Equal(t, int64(1000), bd.MaxSize, "500 bytes should be the maximum size allowed")
 	assert.Equal(t, int64(0), bd.MinSize, "0 should be the minimum size")
 	assert.Equal(t, "([a-z]*).csv", bd.TypesToExclude, "It should exclude all .txt files")
 
@@ -82,7 +82,7 @@ func TestTomlRead(t *testing.T) {
 	inf, e2 = f.Stat()
 	assert.Nil(t, e2, "There should be no error when getting the file info 2")
 	file = NewFile(inf, ".")
-	assert.False(t, bd.Include(file))
+	assert.True(t, bd.Include(file))
 	time.Sleep(time.Second)
 	inf, e2 = f.Stat()
 	assert.Nil(t, e2, "There should be no error when getting the file info 3")

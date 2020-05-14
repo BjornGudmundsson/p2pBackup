@@ -25,7 +25,8 @@ ran="shuf -i 1-1000 -n 1";
 n1="$(shuf -i 1-1000 -n 1)";
 n2="$(shuf -i 1-1000 -n 1)";
 n3="$(shuf -i 1-1000 -n 1)";
-#echo $n1 $n2 $n3;
+paddingBytes="$(shuf -i 50-200 -n 1)";
+#echo $n1 $n2 $n3 $paddingBytes;
 head -c $n1 </dev/random > $dir/t1.txt;
 head -c $n2 </dev/random > $dir/t2.txt;
 head -c  $n3 </dev/random > $dir/t3.txt;
@@ -34,8 +35,10 @@ touch log1.txt log2.txt backupfile1.txt backupfile2.txt set.txt;
 echo $publicAuthKey1 >> set.txt;
 echo $publicAuthKey2 >> set.txt;
 touch peers1.txt peers2.txt;
-echo "Bjorn er cool" >> backupfile2.txt;
-echo "Bjorn er cool" >> backupfile1.txt;
+#echo "Bjorn er coolAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa" >> backupfile2.txt;
+#echo "Bjorn er coolADFSA" >> backupfile1.txt;
+head -c $paddingBytes </dev/urandom > backupfile1.txt;
+head -c $paddingBytes </dev/urandom > backupfile2.txt;
 echo "127.0.0.1 8081 tcp" >> peers1.txt;
 echo "127.0.0.1 8082 tcp" >> peers2.txt;
 
@@ -54,11 +57,10 @@ p1=$!;
 ./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$dir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" &
 p2=$!;
 
-sleep 7s
+sleep 7s;
 
 #Retrieving the backup from peer1
 ./a -peers=peers2.txt -udp=3001 -fileport=8082 -logfile=log2.txt -base=$retrieveDir -storage=backupfile2.txt -key="$key2" $setFlag -authkey="$authKey2" -retrieve=true
-
 
 rm set.txt > /dev/null;
 #Cleaning up after the test

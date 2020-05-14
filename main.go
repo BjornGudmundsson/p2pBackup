@@ -54,7 +54,7 @@ func main() {
 		fmt.Println("Can't create the log: ", e)
 		return
 	}
-	backupHandler := files.NewBackupBuffer("./"+flags.GetString("storage"))
+	backupHandler := files.NewBackupBuffer("./"+flags.GetString("storage"), flags.GetString("backuppw"))
 	encInfo, e := peers.GetEncryptionInfoFromFlags(flags)
 	if e != nil {
 		fmt.Println(e)
@@ -64,7 +64,7 @@ func main() {
 		pages.ServeScripts()
 		http.HandleFunc("/", pages.IndexPage)
 		http.HandleFunc("/backup", pages.BackupFile)
-		go http.ListenAndServe(":"+flags.GetString("p"), nil)
+		http.ListenAndServe(":"+flags.GetString("p"), nil)
 	}
 	base := flags.GetString("base")
 	if flags.GetBool("retrieve") {
@@ -82,7 +82,7 @@ func main() {
 				return
 			}
 			backupRules := files.CreateRules(flags.GetString("backuprules"))
-			go peers.Update(timer, base, backupRules, container, logfile, encInfo, logHandler)
+			go peers.Update(timer, base, backupRules, container, encInfo, logHandler)
 		}
 		server, e := peers.NewServer(flags, backupHandler, encInfo, container)
 		if e != nil {

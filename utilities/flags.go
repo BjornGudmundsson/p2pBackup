@@ -82,6 +82,7 @@ func NewFlags() Flags {
 	update := flag.Bool("update", true, "whether it should be periodically backing up data")
 	repo := flag.String("repo", testRepo, "If the git protocol is used, where the peer list is kept")
 	ip := flag.String("ip", "127.0.0.1", "The IP address of this peer")
+	backuppw := flag.String("backuppw", "deadbeef", "Password used to encrypt ")
 	flag.Parse()
 	flags := &FlagsContainer{
 		ints: make(map[string]int),
@@ -111,6 +112,7 @@ func NewFlags() Flags {
 	flags.booleans["update"] = *update
 	flags.strings["repo"] = *repo
 	flags.strings["ip"] = *ip
+	flags.strings["backuppw"] = *backuppw
 	return flags
 }
 

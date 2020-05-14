@@ -87,8 +87,6 @@ func (p *TCPPeer) ConnectorString() string {
 	return p.Address().String()+":"+strconv.Itoa(p.Port())
 }
 
-
-
 //NewTCPPeer takes in a description string of the form
 //[Name IP hex_of_public_key CipherSuite_being_used]
 //and returns a pointer to a peer if it is a valid string

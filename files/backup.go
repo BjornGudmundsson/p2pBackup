@@ -3,13 +3,27 @@ package files
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"github.com/BjornGudmundsson/p2pBackup/crypto"
+	"github.com/BjornGudmundsson/p2pBackup/utilities"
 	"io/ioutil"
 	"os"
 	"sync"
 	"time"
 )
+
+func getFileSize(f *os.File) int64 {
+	info, e := f.Stat()
+	if e != nil {
+		return -1
+	}
+	return info.Size()
+}
 
 //Backup keeps track of the relevant
 type Backup struct {
@@ -29,6 +43,7 @@ type BackupBuffer struct {
 	mtx sync.Mutex
 	buffer []byte
 	wait time.Duration
+	key []byte
 }
 
 //AddBackup takes in data and backs it up by writing to the file
@@ -36,8 +51,7 @@ type BackupBuffer struct {
 func (bb *BackupBuffer) AddBackup(d []byte) int64 {
 	bb.mtx.Lock()
 	defer bb.mtx.Unlock()
-	fn := bb.fn
-	fl, e := GetFile(fn)
+	fl, e := bb.getFile()
 	if e != nil {
 		return -1
 	}
@@ -57,32 +71,63 @@ func (bb *BackupBuffer) ReadFrom(start, size int64) ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
+	fileSize := getFileSize(f)
+	keyStream, e := bb.getKeyStream(fileSize)
+	if e != nil {
+		return nil, e
+	}
 	buffer := make([]byte, size)
 	_, e = f.ReadAt(buffer, start)
-	return buffer, e
+	if e != nil {
+		return nil, e
+	}
+	e = encryptPartKeyStream(keyStream, buffer, start)
+	if e != nil {
+		return nil, e
+	}
+	return buffer, nil
 }
 
 //writeToFile runs while the system is running and periodically adds new backups
 func (bb *BackupBuffer) writeToFile() {
-	fn := bb.fn
 	for {
-		//Sleep to allow different backups to 'buffer up'
 		time.Sleep(bb.wait)
-		//Locking the file while adding the data
 		bb.mtx.Lock()
-		//Write the current buffer to the file
-		buffer := bb.buffer
+		buffer := make([]byte, len(bb.buffer))
+		copy(buffer, bb.buffer)
 		if len(buffer) == 0 || buffer == nil {
 			bb.mtx.Unlock()
 			continue
 		}
-		fl, e := GetFile(fn)
+		fl, e := bb.getFile()
 		if e != nil {
 			bb.mtx.Unlock()
 			continue
 		}
-		e = AppendToFile(*fl, buffer)
+		f, e := os.OpenFile(bb.fn, os.O_RDWR, os.ModeAppend)
 		if e != nil {
+			bb.mtx.Unlock()
+			continue
+		}
+		size := getFileSize(f)
+		start := fl.Size
+		totalWritten := start + int64(len(buffer))
+		bb.updateMetadata(totalWritten, f)
+		var keyStream []byte
+		if size > totalWritten + 2 * KEYLEN {
+			keyStream, e = bb.getKeyStream(size)
+		} else {
+			keyStream, e = bb.getKeyStream(totalWritten)
+		}
+		if e != nil {
+			bb.mtx.Unlock()
+			continue
+		}
+		if e = encryptPartKeyStream(keyStream, buffer, start) ;e != nil {
+			bb.mtx.Unlock()
+			continue
+		}
+		if e = AppendToFile(*fl, buffer);e != nil {
 			bb.mtx.Unlock()
 			continue
 		}
@@ -91,15 +136,118 @@ func (bb *BackupBuffer) writeToFile() {
 	}
 }
 
-func NewBackupBuffer(fn string) BackupHandler {
+func encryptPartKeyStream(keyStream, data []byte, start int64) error {
+	l, ld := int64(len(keyStream)), int64(len(data))
+	if l < ld{
+		return errors.New("key stream too short")
+	}
+	startStream := keyStream[start:]
+	for i, b := range data {
+		k := startStream[i]
+		data[i] = b ^ k
+	}
+	return nil
+}
+
+func (bb *BackupBuffer) getKeyStream(size int64) ([]byte, error) {
+	f, e := os.OpenFile(bb.fn, os.O_RDWR, os.ModeAppend)
+	if e != nil {
+		return nil, e
+	}
+	fmt.Println("Size: ", size)
+	nonce := make([]byte, KEYLEN)
+	_, e = f.ReadAt(nonce, 0)
+	if e != nil {
+		return nil, e
+	}
+	keyStream, e := crypto.GetKeyStream(nonce, bb.key, size-KEYLEN)
+	if e != nil {
+		return nil, e
+	}
+	return keyStream, nil
+}
+
+func (bb *BackupBuffer) reEncryptFile(keyStream []byte, f *os.File) error {
+	info , e := f.Stat()
+	if e != nil {
+		return e
+	}
+	size := info.Size()
+	key := bb.key
+	newNonce := make([]byte, KEYLEN)
+	rand.Read(newNonce)
+	crypto.MergeWithStream(newNonce, key, keyStream)
+	_, e = f.WriteAt(newNonce, 0)
+	if e != nil {
+		return nil
+	}
+	data := make([]byte, size - KEYLEN)
+	_, e = f.ReadAt(data, KEYLEN)
+	if e != nil {
+		return e
+	}
+	e = utilities.XORBuffers(data, keyStream)
+	_, e = f.WriteAt(data, KEYLEN)
+	return e
+}
+
+func (bb *BackupBuffer) updateMetadata(size int64, f *os.File) error {
+	num := make([]byte, KEYLEN)
+	u := uint64(size)
+	binary.LittleEndian.PutUint64(num[:KEYLEN / 2], u)
+	binary.LittleEndian.PutUint64(num[KEYLEN / 2:], u)
+	_, e := f.WriteAt(num, KEYLEN)
+	if e != nil {
+		return e
+	}
+	return nil
+}
+
+func NewBackupBuffer(fn, pw string) BackupHandler {
 	bb := &BackupBuffer{
 		fn: fn,
 		buffer: make([]byte, 0),
 		wait: time.Second,
+		key: crypto.SymmetricKeyFromPassword(pw),
 	}
 	//Keep a loop running that periodically writes to file
 	go bb.writeToFile()
 	return bb
+}
+
+func (bb *BackupBuffer) getFile() (*File, error) {
+	fn := bb.fn
+	f, e := os.OpenFile(fn, os.O_RDWR, os.ModeAppend)
+	if e != nil {
+		return nil, e
+	}
+	defer f.Close()
+	info, e := f.Stat()
+	if e != nil {
+		return nil, e
+	}
+	size := info.Size()
+	if size < 2 * KEYLEN {
+		return nil, errors.New("not able to retrieve file metadata")
+	}
+	metadata := make([]byte, 2 * KEYLEN)
+	_, e = f.Read(metadata)
+	if e != nil {
+		return nil, e
+	}
+	fl, e := GetFile(fn)
+	if e != nil {
+		return fl, e
+	}
+	_, written := metadata[:KEYLEN], metadata[KEYLEN:2 * KEYLEN]
+	left, right := written[: KEYLEN / 2], written[KEYLEN / 2: KEYLEN]
+	if string(left) != string(right) {
+		fl.Size = 2 * KEYLEN
+	} else {
+		writtenBytes := int64(binary.LittleEndian.Uint64(left))
+		fl.Size = 2 * KEYLEN + writtenBytes
+	}
+	return fl, nil
 }
 
 
