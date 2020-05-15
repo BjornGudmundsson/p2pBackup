@@ -204,7 +204,6 @@ func UploadData(d []byte, comm Communicator, encInfo *EncryptionInfo) (uint64, e
 	if e != nil {
 		return 0, e
 	}
-	fmt.Println("Closing channel")
 	e = comm.CloseChannel()
 	return index, e
 }

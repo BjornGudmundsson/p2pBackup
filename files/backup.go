@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/crypto"
 	"github.com/BjornGudmundsson/p2pBackup/utilities"
 	"io/ioutil"
@@ -114,10 +113,10 @@ func (bb *BackupBuffer) writeToFile() {
 		totalWritten := start + int64(len(buffer))
 		bb.updateMetadata(totalWritten, f)
 		var keyStream []byte
-		if size > totalWritten + 2 * KEYLEN {
+		if size > totalWritten {
 			keyStream, e = bb.getKeyStream(size)
 		} else {
-			keyStream, e = bb.getKeyStream(totalWritten)
+			keyStream, e = bb.getKeyStream(totalWritten + 2 * KEYLEN)
 		}
 		if e != nil {
 			bb.mtx.Unlock()
@@ -154,13 +153,12 @@ func (bb *BackupBuffer) getKeyStream(size int64) ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
-	fmt.Println("Size: ", size)
 	nonce := make([]byte, KEYLEN)
 	_, e = f.ReadAt(nonce, 0)
 	if e != nil {
 		return nil, e
 	}
-	keyStream, e := crypto.GetKeyStream(nonce, bb.key, size-KEYLEN)
+	keyStream, e := crypto.GetKeyStream(nonce, bb.key, size)
 	if e != nil {
 		return nil, e
 	}
