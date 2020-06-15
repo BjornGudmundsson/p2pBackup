@@ -50,6 +50,7 @@ func BackupDate(dir string, rules files.BackupData, container Container, enc *En
 					return
 				}
 				for _, peer := range peers {
+					now := time.Now().Nanosecond()
 					comm, e := NewCommunicatorFromPeer(peer, enc)
 					if e != nil {
 						fmt.Println(e)
@@ -61,6 +62,7 @@ func BackupDate(dir string, rules files.BackupData, container Container, enc *En
 					} else {
 						indexes = append(indexes, index)
 					}
+					fmt.Println("Elapsed: ", time.Now().Nanosecond() - now, ",", len(data))
 				}
 				log := h.NewLog(data, indexes, ct)
 				e = h.Log(log)

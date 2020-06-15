@@ -1,6 +1,7 @@
 package peers
 
 import (
+	"errors"
 	"fmt"
 	"github.com/BjornGudmundsson/p2pBackup/files"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/key"
@@ -114,6 +115,10 @@ func firstReply(c Communicator,encInfo *EncryptionInfo, backupHandler files.Back
 	if e != nil {
 		return nil, e
 	}
+	normal, e := GetNormalHandler(s, encInfo, backupHandler)
+	if e == nil {
+		return normal, nil
+	}
 	msg, e := encInfo.DecodePURBAnon(s)
 	if e != nil {
 		return nil, e
@@ -155,6 +160,21 @@ func createHandler(encInfo *EncryptionInfo, backupHandler files.BackupHandler) f
 }
 
 
+func getIndexes(s string) (int64, int64, error) {
+	fields := strings.Split(s, ";")
+	if len(fields) != 3 {
+		return -1, -1, new(ErrorFailedProtocol)
+	}
+	start, e := strconv.Atoi(fields[1])
+	if e != nil {
+		return -1, -1, e
+	}
+	size, e := strconv.Atoi(fields[2])
+	if e != nil {
+		return -1, -1, e
+	}
+	return int64(start), int64(size), nil
+}
 //UploadData takes in a slice of bytes
 //and sends it the given peer.
 func UploadData(d []byte, comm Communicator, encInfo *EncryptionInfo) (uint64, error) {
@@ -208,19 +228,66 @@ func UploadData(d []byte, comm Communicator, encInfo *EncryptionInfo) (uint64, e
 	return index, e
 }
 
-func getIndexes(s string) (int64, int64, error) {
-	fields := strings.Split(s, ";")
-	if len (fields) != 3 {
-		return -1,-1, new(ErrorFailedProtocol)
-	}
-	start, e := strconv.Atoi(fields[1])
+func SimpleUpload(d []byte, comm Communicator, encInfo *EncryptionInfo) (uint64, error) {
+	sig, e := encInfo.NormalSign(d)
 	if e != nil {
-		return -1, -1, e
+		return 0, e
 	}
-	size, e := strconv.Atoi(fields[2])
+	encData := encInfo.Enc.EncodeToString(d)
+	encSig := encInfo.Enc.EncodeToString(sig)
+	s := "Norm" + seperator + encData + seperator + encSig
+	comm.SendMessage([]byte(s))
+	resp, e := comm.GetNextMessage()
+	fmt.Println("Yolo")
 	if e != nil {
-		return -1, -1, e
+		return 0, e
 	}
-	return int64(start), int64(size), nil
+	spl := strings.Split(string(resp), seperator)
+	if len(spl) < 2 {
+		return 0, errors.New("failed response")
+	}
+	ind, resSig := spl[0], spl[1]
+	e = encInfo.NormalVerify([]byte(ind), []byte(resSig))
+	if e != nil {
+		return 0, e
+	}
+	u, e := strconv.Atoi(ind)
+	if e != nil {
+		return 0, e
+	}
+	return uint64(u), nil
 }
 
+func GetNormalHandler(msg []byte, info *EncryptionInfo, bh files.BackupHandler) (communicationHandler, error) {
+	s := string(msg)
+	if !strings.Contains(s, "Norm") {
+		return nil, errors.New("this was not a normal request")
+	}
+	return func(c Communicator) error {
+		spl := strings.Split(s, seperator)
+		chunk, sig := spl[1], spl[2]
+		data, e := info.Enc.DecodeFromString(chunk)
+		if e != nil {
+			return e
+		}
+		signature, e := info.Enc.DecodeFromString(sig)
+		if e != nil {
+			return e
+		}
+		v := info.NormalVerify(data, signature)
+		if v != nil {
+			return v
+		}
+		ind := bh.AddBackup(data)
+		if ind == -1 {
+			return errors.New("could not add to permanent storage")
+		}
+		u := strconv.FormatInt(ind, 10)
+		su, e := info.Sign([]byte(u))
+		if e != nil {
+			return e
+		}
+		r := u + seperator + info.Enc.EncodeToString(su)
+		return c.SendMessage([]byte(r))
+	}, nil
+}

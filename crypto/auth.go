@@ -24,11 +24,16 @@ type Authenticator interface {
 	Sign(scalar kyber.Scalar, msg []byte, l []byte) ([]byte, error)
 	Verify(msg []byte, sig []byte, link []byte) ([]byte, error)
 	GetAnonSet() anon.Set
+	GetSuite() anon.Suite
 }
 
 type AnonAuthenticator struct {
 	suite anon.Suite
 	set anon.Set
+}
+
+func (a *AnonAuthenticator) GetSuite() anon.Suite {
+	return a.suite
 }
 
 func (a *AnonAuthenticator) Sign(scalar kyber.Scalar, msg []byte, l []byte) ([]byte, error) {
@@ -93,4 +98,3 @@ func GetAnonymitySet(fn string, suite anon.Suite) (anon.Set, error) {
 	}
 	return set, nil
 }
-

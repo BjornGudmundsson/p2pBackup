@@ -25,3 +25,13 @@ func MergeWithStream(nonce, key, oldStream []byte) error {
 	ctr.XORKeyStream(oldStream, oldStream)
 	return nil
 }
+
+func EncryptCTR(nonce, key, data []byte) error {
+	block, e := aes2.NewCipher(key)
+	if e != nil {
+		return e
+	}
+	ctr := cipher.NewCTR(block, nonce)
+	ctr.XORKeyStream(data, data)
+	return nil
+}

@@ -1,0 +1,4 @@
+CREATE TABLE [backups] (
+	[BackupId] VARCHAR  NOT NULL PRIMARY KEY,
+	[Backup] VARCHAR NOT NULL
+);

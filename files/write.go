@@ -20,6 +20,7 @@ func AppendToFile(f File, data []byte) error {
 		fn = f.Path + "/" + f.Name
 	}
 	fd, e := os.OpenFile(fn, os.O_WRONLY, os.ModeAppend)
+	defer fd.Close()
 	if e != nil {
 		return e
 	}

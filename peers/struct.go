@@ -7,6 +7,7 @@ import (
 	"github.com/BjornGudmundsson/p2pBackup/crypto"
 	"github.com/BjornGudmundsson/p2pBackup/files"
 	"github.com/BjornGudmundsson/p2pBackup/kyber"
+	"github.com/BjornGudmundsson/p2pBackup/kyber/sign/schnorr"
 	"github.com/BjornGudmundsson/p2pBackup/kyber/util/random"
 	"github.com/BjornGudmundsson/p2pBackup/purb"
 	"github.com/BjornGudmundsson/p2pBackup/purb/purbs"
@@ -166,6 +167,21 @@ func NewEncryptionInfo(auth crypto.Authenticator, authKey kyber.Scalar, link []b
 
 func (enc *EncryptionInfo) Sign(msg []byte) ([]byte, error) {
 	return enc.Auth.Sign(enc.AuthKey, msg, enc.Link)
+}
+
+func (enc *EncryptionInfo) NormalSign(msg []byte) ([]byte, error) {
+	return schnorr.Sign(enc.Auth.GetSuite(), enc.AuthKey, msg)
+}
+
+func (enc *EncryptionInfo) NormalVerify(msg, sig []byte) error {
+	set := enc.Auth.GetAnonSet()
+	for _, p := range set {
+		e := schnorr.Verify(enc.Auth.GetSuite(), p, msg, sig)
+		if e != nil {
+			return nil
+		}
+	}
+	return errors.New("could not verify")
 }
 
 func (enc *EncryptionInfo) Verify(msg, sig []byte) ([]byte, error) {
