@@ -25,7 +25,7 @@ ran="shuf -i 1-1000 -n 1";
 n1="$(shuf -i 1-1000 -n 1)";
 n2="$(shuf -i 1-1000 -n 1)";
 n3="$(shuf -i 1-1000 -n 1)";
-paddingBytes="$(shuf -i 50-6000 -n 1)";
+paddingBytes="$(shuf -i 5000-6000 -n 1)";
 #echo $n1 $n2 $n3 $paddingBytes;
 head -c $n1 </dev/random > $dir/t1.txt;
 head -c $n2 </dev/random > $dir/t2.txt;
