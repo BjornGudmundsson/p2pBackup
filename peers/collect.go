@@ -60,9 +60,13 @@ func BackupDate(dir string, rules files.BackupData, container Container, enc *En
 					if e != nil {
 						fmt.Println(e.Error())
 					} else {
+						fmt.Println("Success")
 						indexes = append(indexes, index)
 					}
-					fmt.Println("Elapsed: ", time.Now().Nanosecond() - now, ",", len(data))
+					duration := time.Now().Nanosecond() - now
+					if duration > 0 {
+						fmt.Println("Elapsed: ", time.Now().Nanosecond()-now, ",", len(data))
+					}
 				}
 				log := h.NewLog(data, indexes, ct)
 				e = h.Log(log)

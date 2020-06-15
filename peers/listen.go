@@ -195,6 +195,7 @@ func UploadData(d []byte, comm Communicator, encInfo *EncryptionInfo) (uint64, e
 	}
 	pk, e := verifyPublicKey(reply, encInfo, suite, suiteBlob)
 	if e != nil {
+		fmt.Println("Yolo")
 		return 0, e
 	}
 	marshalledKey, e := pk.MarshalBinary()

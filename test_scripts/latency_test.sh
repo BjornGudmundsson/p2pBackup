@@ -1,4 +1,5 @@
 echo "Latency test";
+sleep 3s;
 DEBUG=true;
 RED='\033[0;31m'
 NC='\033[0m'
@@ -23,17 +24,21 @@ paddingBytes="$(shuf -i 5000-6000 -n 1)";
 echo $dummyContent >> $dir/t1.txt;
 echo $dummyContent >> $dir/t2.txt;
 echo $dummyContent >> $dir/t3.txt;
-touch log1.txt log2.txt backupfile1.txt backupfile2.txt set.txt;
+touch log1.txt backupfile1.txt set.txt;
 echo $publicAuthKey1 >> set.txt;
 echo $publicAuthKey2 >> set.txt;
 touch peers.txt;
 head -c $paddingBytes </dev/urandom > backupfile1.txt;
-echo "127.0.0.1 8081 tcp" >> peers.txt;
-
+echo "192.168.1.118 8081 tcp" >> peers.txt;
+if [ "$DEBUG" = true ]; then
+  make build > /dev/null;
+else
+  make build;
+fi
 
 
 #Running the first peer
-./a -peers=peers1.txt -udp=3000 -fileport=8081 -logfile=log1.txt -base=$dir -storage=backupfile1.txt -key="$key1"  $setFlag -authkey="$authKey1" &
+./a -peers=peers.txt -udp=3000 -fileport=8081 -logfile=log1.txt -base=$dir -storage=backupfile1.txt -key="$key1"  $setFlag -authkey="$authKey1" &
 p1=$!;
 sleep 40s;
 rm set.txt > /dev/null;
